@@ -2,6 +2,11 @@
 import { TARIFFS } from './tariffs-data.js';
 
 const FRI_SAT = new Set([5, 6]); // JS getDay(): 5=Fri, 6=Sat
+
+export function dateKey(d) {
+  // local date (never toISOString: UTC conversion shifts days around midnight)
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
 export const CITIES = {
   'ירושלים': [31.7683, 35.2137], 'תל אביב': [32.0853, 34.7818], 'חיפה': [32.7940, 34.9896],
   'באר שבע': [31.2529, 34.7915], 'אילת': [29.5577, 34.9519], 'נתניה': [32.3215, 34.8532],
@@ -43,7 +48,7 @@ export function summarize(intervals) {
   const hourly = new Array(24).fill(0);
   const hourlyCount = new Array(24).fill(0);
   for (const i of intervals) {
-    const key = i.start.toISOString().slice(0, 10);
+    const key = dateKey(i.start);
     daily.set(key, (daily.get(key) || 0) + i.kwh);
     hourly[i.start.getHours()] += i.kwh;
     hourlyCount[i.start.getHours()]++;
@@ -60,18 +65,17 @@ export function taozRate(when, taoz) {
   if (!season) throw new Error('no taoz season for month ' + m);
   const s = season[1];
   const day = when.getDay();
-  const dateStr = when.toISOString().slice(0, 10);
+  const dateStr = dateKey(when);
   let peak;
   if (s.peak.days === 'all') peak = true;
-  else if (s.peak.days === 'sun-thu') peak = day >= 0 && day <= 4;
-  else peak = day >= 0 && day <= 4; // a-h
+  else peak = day >= 0 && day <= 4; // sun-thu
   const mins = when.getHours() * 60 + when.getMinutes();
   const [sh, sm] = s.peak.start.split(':').map(Number);
   const [eh, em] = s.peak.end.split(':').map(Number);
   peak = peak && mins >= sh * 60 + sm && mins < eh * 60 + em;
   if (peak && season[0] !== 'winter' &&
       ((taoz.holidays || []).includes(dateStr) || (taoz.holiday_eves || []).includes(dateStr))) peak = false;
-  return peak ? s.peak.rate : s.off_peak.rate;
+  return peak ? s.rates.peak : s.rates.off_peak;
 }
 
 // --- plan costs ---
@@ -152,17 +156,28 @@ export function hvacSplit(dailyKwh, temps, coolingBase = 22, heatingBase = 18) {
   if (days.length < 7) return null;
   const cdd = days.map(d => Math.max(0, temps[d] - coolingBase));
   const hdd = days.map(d => Math.max(0, heatingBase - temps[d]));
-  if (pstdev(cdd) < 0.2 && pstdev(hdd) < 0.2) return null;
-  const rows = days.map((d, i) => [1, [5, 6].includes(new Date(d).getDay()) ? 1 : 0, cdd[i], hdd[i]]);
+  const cddVar = pstdev(cdd) >= 0.2, hddVar = pstdev(hdd) >= 0.2;
+  if (!cddVar && !hddVar) return null;
+  const rows = days.map((d, i) => {
+    const row = [1, [5, 6].includes(new Date(d + 'T12:00:00').getDay()) ? 1 : 0];
+    if (cddVar) row.push(cdd[i]);
+    if (hddVar) row.push(hdd[i]);
+    return row;
+  });
   const y = days.map(d => dailyKwh[d]);
-  const { coef: [b0, bW, bC, bH], r2 } = ols(rows, y);
+  let coef, r2;
+  try { ({ coef, r2 } = ols(rows, y)); } catch { return null; }
+  const b0 = coef[0], bW = coef[1];
+  let i2 = 2;
+  const bC = cddVar ? coef[i2++] : null;
+  const bH = hddVar ? coef[i2] : null;
   const byMonth = {};
   days.forEach((d, i) => {
     const m = d.slice(0, 7);
     byMonth[m] = byMonth[m] || { month: m, days: 0, total: 0, base: 0, weekend: 0, cooling: 0, heating: 0 };
     const o = byMonth[m];
     o.days++; o.total += y[i]; o.base += b0;
-    o.weekend += rows[i][1] ? bW : 0; o.cooling += bC * cdd[i]; o.heating += bH * hdd[i];
+    o.weekend += rows[i][1] ? bW : 0; o.cooling += (bC || 0) * cdd[i]; o.heating += (bH || 0) * hdd[i];
   });
   return { days: days.length, kwhPerCoolingDegree: bC, kwhPerHeatingDegree: bH, r2,
            coolingBase, heatingBase, monthly: Object.values(byMonth) };

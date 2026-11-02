@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>מחשבון מסלולי חשמל</title>
+<style>
+  :root { --bg:#f7f7f9; --card:#fff; --ink:#1a1a2e; --accent:#0b6bcb; --muted:#666; }
+  * { box-sizing: border-box; }
+  body { font-family: system-ui, "Segoe UI", Arial, sans-serif; background:var(--bg); color:var(--ink); margin:0; }
+  header { background:var(--accent); color:#fff; padding:1rem 1.5rem; }
+  header h1 { margin:0; font-size:1.3rem; }
+  main { max-width:960px; margin:0 auto; padding:1rem; display:grid; gap:1rem; }
+  .card { background:var(--card); border-radius:12px; padding:1rem 1.25rem; box-shadow:0 1px 4px rgba(0,0,0,.08); }
+  .privacy { background:#e8f5e9; border:1px solid #a5d6a7; border-radius:8px; padding:.6rem .9rem; font-size:.9rem; }
+  label { display:block; margin:.35rem 0; font-size:.92rem; }
+  input[type=text], input[type=number], select { padding:.3rem .5rem; border:1px solid #ccc; border-radius:6px; font:inherit; }
+  button { background:var(--accent); color:#fff; border:0; border-radius:8px; padding:.55rem 1.4rem; font:inherit; cursor:pointer; }
+  button:disabled { opacity:.5; }
+  table { border-collapse:collapse; width:100%; font-size:.9rem; }
+  th, td { padding:.35rem .5rem; border-bottom:1px solid #eee; text-align:right; }
+  tr.best { background:#e3f2fd; font-weight:600; }
+  tr.current { outline:2px solid var(--accent); }
+  .muted { color:var(--muted); font-size:.85rem; }
+  canvas { width:100%; max-width:880px; }
+  .err { background:#ffebee; border:1px solid #ef9a9a; border-radius:8px; padding:.6rem .9rem; display:none; }
+  .opts { display:flex; flex-wrap:wrap; gap:1rem; }
+  h2 { font-size:1.05rem; margin:.2rem 0 .6rem; }
+</style>
+</head>
+<body>
+<header><h1>מחשבון מסלולי חשמל - מה הכי משתלם לך?</h1></header>
+<main>
+  <div class="card">
+    <div class="privacy">🔒 הקובץ לא נשלח לשום שרת. כל החישוב מתבצע בדפדפן שלך בלבד.
+      מקור התעריפים: נתונים מפורסמים שאומתו מול חברת החשמל ואתרי השוואה (מצורף קישור במקור).</div>
+    <p>
+      <label>קובץ ייצוא צריכה של חברת החשמל (CSV):
+        <input type="file" id="csv" accept=".csv,text/csv"></label>
+    </p>
+    <div class="opts">
+      <label>עיר (נקראה מהקובץ; אפשר לשנות):
+        <input type="text" id="city" list="cities" placeholder="ירושלים">
+        <datalist id="cities"></datalist></label>
+      <label>סוג מונה:
+        <select id="phase"><option value="single">חד-פאזי</option><option value="three">תלת-פאזי</option></select></label>
+      <label><input type="checkbox" id="smartMeter" checked> יש לי מונה חכם</label>
+      <label><input type="checkbox" id="gasCustomer" checked> לקוח גז אמישראגז</label>
+      <label><input type="checkbox" id="hotCustomer" checked> לקוח HOT/NEXT</label>
+      <label><input type="checkbox" id="weather" checked> ניתוח מזג אוויר (קירור/חימום)</label>
+      <label>המסלול הנוכחי שלי: <select id="currentPlan"><option value="">-</option></select></label>
+    </div>
+    <p><button id="go" disabled>חשב</button> <span id="status" class="muted"></span></p>
+    <div class="err" id="err"></div>
+  </div>
+
+  <div class="card" id="summaryCard" style="display:none">
+    <h2>פרופיל צריכה</h2>
+    <div id="summary"></div>
+    <h2>פרופיל שעתי (ממוצע קוט"ש לרבע שעה)</h2>
+    <canvas id="chHourly" width="880" height="260"></canvas>
+    <h2>צריכה יומית</h2>
+    <canvas id="chDaily" width="880" height="260"></canvas>
+  </div>
+
+  <div class="card" id="weatherCard" style="display:none">
+    <h2>מזג אוויר: קירור מול חימום</h2>
+    <div id="weatherText"></div>
+    <canvas id="chWeather" width="880" height="300"></canvas>
+    <div id="hvacText"></div>
+  </div>
+
+  <div class="card" id="plansCard" style="display:none">
+    <h2>דירוג מסלולים (עלות שנתית משוערת: צריכה + תשלומים קבועים, כולל מע"מ)</h2>
+    <div id="plansNote" class="muted"></div>
+    <canvas id="chPlans" width="880" height="520"></canvas>
+    <table id="plansTable"></table>
+    <div id="currentPlanNote"></div>
+  </div>
+
+  <div class="card muted">
+    מקורות תעריפים: <span id="sources"></span> ·
+    מזג אוויר: <a href="https://open-meteo.com/" rel="noopener">Open-Meteo</a> (ארכיון יומי, ללא מפתח).
+  </div>
+</main>
+<script type="module" src="app.js"></script>
+</body>
+</html>
