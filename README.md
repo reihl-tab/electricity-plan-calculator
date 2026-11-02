@@ -1,0 +1,71 @@
+# iec-calc — electricity-plan-calculator
+
+Analyze an **Israel Electric Corp (IEC) consumption export** (the hourly /
+15-minute CSV from the IEC website) and rank every electricity plan available
+in Israel — the regulated flat tariff, regulated time-of-use (תעו"ז / Taoz),
+and all private supplier discount plans — by **your actual usage**, with
+annual NIS cost estimates. The most worthwhile plan is marked in the output.
+
+## Install
+
+```sh
+pip install .
+# dev (tests, lint, audit):
+pip install -e '.[dev]'
+```
+
+## Quickstart
+
+```sh
+iec-calc report path/to/your-iec-export.csv            # analysis + plan ranking
+iec-calc analyze path/to/your-iec-export.csv           # consumption profile only
+iec-calc analyze path/to/your-iec-export.csv --weather # + temperature sensitivity
+iec-calc plans  path/to/your-iec-export.csv            # plan ranking only
+iec-calc --debug report export.csv                     # diagnostic logging (off by default)
+```
+
+Try it on the synthetic sample: `iec-calc report data/sample_consumption.csv`
+
+## What you get
+
+- **Consumption profile**: totals, daily/hourly shape, base load, peak,
+  night vs day, weekday vs Fri-Sat, anomaly days, annualized estimate.
+- **Weather sensitivity** (optional, Open-Meteo): correlation and
+  kWh-per-degree with the weekend effect controlled.
+- **Plan ranking**: annual cost for the flat tariff, Taoz, and all 20
+  private supplier plans, computed interval-by-interval from your data,
+  cheapest first. Discount windows follow Israeli conventions
+  (workdays = Sunday-Thursday; night windows wrap midnight).
+
+## Tariff data
+
+All rates, discounts, eligibility notes, source URLs and verification dates
+live in [`data/tariffs.json`](data/tariffs.json). Updating prices = editing
+that one file. Sources: Electricity Authority tariff book (July 2026),
+IEC/EA cross-checks, and supplier-site-verified plan data (2026-09-27).
+
+## Privacy
+
+- Real exports are never committed: `.gitignore` excludes `*.csv`;
+  `data/sample_consumption.csv` is synthetic and whitelisted.
+- CI runs `scripts/privacy_scan.sh`, which fails on contract-number and
+  meter-id patterns and on customer metadata outside the sample.
+- Customer metadata (name/address/contract/meter) is never printed or logged.
+
+## Caveats
+
+- Annualization scales your measured window to 365 days; a single-season
+  export skews summer/winter estimates. Use a 12-month export for decisions.
+- Fixed fees are identical across suppliers and excluded from the comparison.
+
+## Development
+
+```sh
+pytest --cov          # tests + coverage gate (>= 80%)
+ruff check src tests  # lint
+pip-audit             # dependency vulnerabilities
+man -l man/iec-calc.1 # man page
+```
+
+Rules: design doc first (DESIGN.md), an issue per change, small signed
+commits, PRs merged only with green CI and an independent review.

@@ -1,0 +1,55 @@
+.TH IEC-CALC 1 "November 2026" "iec-calc 0.1.0" "User Commands"
+.SH NAME
+iec-calc \- analyze IEC consumption exports and rank Israeli electricity plans
+.SH SYNOPSIS
+.B iec-calc
+.RI [ --debug ]
+.RI [ --tariffs " JSON" ]
+.BR analyze " | " plans " | " report
+.I EXPORT.csv
+.RI [ --weather ]
+.RI [ --lat " DEG" ]
+.RI [ --lon " DEG" ]
+.SH DESCRIPTION
+.B iec-calc
+parses an Israel Electric Corp hourly or 15-minute consumption export (CSV)
+and computes, interval by interval, the annual cost of every electricity plan
+in Israel: the regulated flat tariff, regulated time-of-use (Taoz), and all
+private supplier discount plans. Plans are printed cheapest first; the most
+worthwhile plan is marked.
+.PP
+All processing is local. Customer metadata (name, address, contract and
+meter numbers) is never printed or logged.
+.SH COMMANDS
+.TP
+.B analyze
+Consumption profile: totals, base load, peaks, night/weekend split, anomalies.
+.TP
+.B plans
+Rank all plans by annual cost on your data.
+.TP
+.B report
+Both of the above.
+.SH OPTIONS
+.TP
+.B --debug
+Verbose diagnostic logging to stderr. Off by default.
+.TP
+.BI --tariffs " JSON"
+Use an alternative tariff catalog instead of the bundled data/tariffs.json.
+.TP
+.B --weather
+Correlate daily consumption with temperature (Open-Meteo archive API).
+.TP
+.BI --lat " DEG" , --lon " DEG"
+Coordinates for weather lookup. Default: 31.78, 35.21 (Jerusalem).
+.SH EXIT STATUS
+0 on success, 2 on unreadable or empty input.
+.SH FILES
+.TP
+.I data/tariffs.json
+Rates, discount windows, eligibility, source URLs and verification dates.
+.SH EXAMPLES
+.TP
+.B iec-calc report export.csv --weather --lat 32.08 --lon 34.78
+Full report for Tel Aviv coordinates.
