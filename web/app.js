@@ -1,5 +1,8 @@
 import { TARIFFS } from './tariffs-data.js';
 import { parseCsv, summarize, rankPlans, buildInsights } from './calc.js';
+import { t, applyI18n } from './i18n.js';
+
+applyI18n();
 
 const $ = id => document.getElementById(id);
 const nis = v => `${Math.round(v).toLocaleString('he-IL')} ₪`;
@@ -9,7 +12,7 @@ $('csv').addEventListener('change', () => { $('go').disabled = !$('csv').files.l
 // populate current-plan select from catalog
 {
   const sel = $('currentPlan');
-  const labels = ['חברת החשמל - תעריף אחיד מפוקח', 'תעו"ז מפוקח (מונה חכם)',
+  const labels = [t('plan.flat_label'), t('plan.taoz_label'),
     ...TARIFFS.supplier_plans.map(p => `${p.supplier} - ${p.plan}`)];
   for (const l of labels) { const o = document.createElement('option'); o.value = l; o.textContent = l; sel.appendChild(o); }
 }
@@ -67,11 +70,11 @@ $('go').addEventListener('click', async () => {
     const sumEl = $('summary');
     sumEl.innerHTML = '';
     const daysB = document.createElement('b');
-    daysB.textContent = `${sum.days} ימי מדידה`;
+    daysB.textContent = t('app.days_measured', { days: sum.days });
     sumEl.appendChild(daysB);
-    sumEl.appendChild(document.createTextNode(
-      ` · סה"כ ${sum.total.toFixed(1)} קוט"ש · ממוצע ${(sum.total / sum.days).toFixed(2)} קוט"ש/יום` +
-      ` · הערכה שנתית ${Math.round(sum.total / sum.days * 365).toLocaleString('he-IL')} קוט"ש`));
+    sumEl.appendChild(document.createTextNode(t('app.summary_line', {
+      total: sum.total.toFixed(1), avg: (sum.total / sum.days).toFixed(2),
+      annual: Math.round(sum.total / sum.days * 365).toLocaleString('he-IL') })));
     barChart($('chHourly'), [...Array(24).keys()].map(h => h % 2 ? null : `${h}:00`),
       [...sum.hourlyAvg], '#0b6bcb');
     const days = [...sum.daily.keys()].sort();
@@ -93,8 +96,8 @@ $('go').addEventListener('click', async () => {
     const tbl = $('plansTable');
     tbl.innerHTML = '';
     const head = tbl.insertRow();
-    for (const t of ['#', 'מסלול', 'עלות שנתית', 'חיסכון מול תעריף אחיד']) {
-      const th = document.createElement('th'); th.textContent = t; head.appendChild(th);
+    for (const h of ['#', t('app.col_plan'), t('app.col_annual'), t('app.col_saving')]) {
+      const th = document.createElement('th'); th.textContent = h; head.appendChild(th);
     }
     ranked.forEach((p, i) => {
       const row = tbl.insertRow();
@@ -102,7 +105,7 @@ $('go').addEventListener('click', async () => {
       if (p.label === currentLabel) row.className += ' current';
       row.insertCell().textContent = String(i + 1);
       row.insertCell().textContent =
-        p.label + (i === 0 ? ' ◀ הכי משתלם' : '') + (p.label === currentLabel ? ' ◀ המסלול הנוכחי' : '');
+        p.label + (i === 0 ? t('app.best_marker') : '') + (p.label === currentLabel ? t('app.current_marker') : '');
       row.insertCell().textContent = nis(p.annual);
       row.insertCell().textContent = nis(p.saving);
     });
@@ -111,15 +114,15 @@ $('go').addEventListener('click', async () => {
     if (current) {
       const b = document.createElement('b');
       b.textContent = current === ranked[0]
-        ? `המסלול הנוכחי שלך (${current.label}) הוא הזול ביותר - אין צורך להחליף.`
-        : `מעבר ל${ranked[0].label} חוסך ${nis(current.annual - ranked[0].annual)} לשנה מול המסלול הנוכחי (${current.label}).`;
+        ? t('app.current_is_best', { label: current.label })
+        : t('app.switch_saves', { best: ranked[0].label, amount: nis(current.annual - ranked[0].annual), label: current.label });
       const p = document.createElement('p'); p.appendChild(b); note.appendChild(p);
     }
-    $('plansNote').textContent = 'בתעו"ז התשלום הקבוע גבוה יותר. מסלולי שעות דורשים מונה חכם.';
+    $('plansNote').textContent = t('app.plans_note');
 
     // insights: observations only, from the CSV alone
     const ins = buildInsights(intervals);
-    const HEDAY = ['ראשון', 'שני', 'שלישי', 'רביעי', 'חמישי', 'שישי', 'שבת'];
+    const HEDAY = [0,1,2,3,4,5,6].map(i => t('app.day_' + i));
     const fmtD = iso => iso.slice(8, 10) + '.' + iso.slice(5, 7);
     const baseAnnual = ins.nightBaseKw * 24 * 365 * TARIFFS.regulated.flat_rate_per_kwh;
     $('insightsCard').style.display = '';
@@ -132,75 +135,74 @@ $('go').addEventListener('click', async () => {
     };
     addP(p => {
       if (ins.coversFullYear) {
-        p.textContent = `כיסוי: ${ins.days} ימים (${fmtD(ins.first)} - ${fmtD(ins.last)}) - שנה מלאה.`;
+        p.textContent = t('app.coverage_full', { days: ins.days, first: fmtD(ins.first), last: fmtD(ins.last) });
       } else {
         const b = document.createElement('b');
-        b.textContent = `כיסוי: ${ins.days} ימים בלבד.`;
+        b.textContent = t('app.coverage_partial_days', { days: ins.days });
         p.appendChild(b);
-        p.append(' השוואה עונתית (חורף/קיץ) דורשת ייצוא של שנה מלאה; אין להסיק מהקובץ על עונות שאינן בו.');
+        p.append(t('app.coverage_partial_note'));
       }
     });
     addP(p => {
-      p.textContent =
-        `שעות שיא ממוצעות: ${ins.peakHours.map(([h, v]) => `${String(h).padStart(2, '0')}:00 (${v.toFixed(2)})`).join(', ')} קוט"ש · ` +
-        `יום חול ${ins.weekdayAvg.toFixed(2)} | שישי-שבת ${ins.weekendAvg.toFixed(2)} קוט"ש · ` +
-        `רצפת צריכה (בסיס): ${Math.round(ins.nightBaseKw * 1000)} וואט (כ-${Math.round(baseAnnual).toLocaleString('he-IL')} ₪ לשנה אם קבוע) - מקרר שעובד תמיד ועוד מכשירים מחוברים שכל אחד צורך מעט; יחד הם יוצרים את הרצפה`;
+      p.textContent = t('app.peak_line', {
+        hours: ins.peakHours.map(([h, v]) => `${String(h).padStart(2, '0')}:00 (${v.toFixed(2)})`).join(', '),
+        weekday: ins.weekdayAvg.toFixed(2), weekend: ins.weekendAvg.toFixed(2),
+        watts: Math.round(ins.nightBaseKw * 1000), nis: Math.round(baseAnnual).toLocaleString('he-IL') });
     });
     if (ins.shabbatCount) {
       addP(p => {
-        p.textContent =
-          `שבת (שקיעת ו' עד צאת השבת, ${ins.shabbatCount} שבתות): ממוצע ${ins.shabbatAvgKwh.toFixed(1)} קוט"ש לשבת; ` +
-          `צריכת לילה ${Math.round(ins.shabbatNightBaseKw * 1000)} וואט מול ${Math.round(ins.nightBaseKw * 1000)} בחול - ` +
-          `עומס קבוע (למשל פלטה/מיחם) הוא הסבר אפשרי, לא ודאי`;
+        p.textContent = t('app.shabbat_line', {
+          count: ins.shabbatCount, avg: ins.shabbatAvgKwh.toFixed(1),
+          shabbat: Math.round(ins.shabbatNightBaseKw * 1000), base: Math.round(ins.nightBaseKw * 1000) });
       });
     }
     if (ins.observance) {
       const ob = ins.observance;
       const pct = Math.round((ob.baseRatio - 1) * 100);
-      const baseTxt = `צריכת ליל שבת גבוהה ב-${pct}% מליל חול`;
-      const applTxt = `${ob.shabbatStarts} הפעלות מכשירים ב-${ob.shabbatCount} שבתות (מול ${ob.weekdayRate.toFixed(1)} ליום חול בממוצע)`;
-      const detail = ob.confidence === 'high' ? `${baseTxt} ו${applTxt}`
-        : ob.signals.includes('base') ? `${baseTxt} - עומס קבוע כמו פלטה/מיחם הוא הסבר אפשרי` : applTxt;
-      const level = ob.confidence === 'high' ? 'גבוה' : 'בינוני';
-      const lead = ob.confidence === 'high' ? 'נראה' : 'ייתכן';
+      const baseTxt = t('app.obs_base', { pct });
+      const applTxt = t('app.obs_appl', { starts: ob.shabbatStarts, count: ob.shabbatCount, rate: ob.weekdayRate.toFixed(1) });
+      const detail = ob.confidence === 'high' ? baseTxt + t('app.obs_join') + applTxt
+        : ob.signals.includes('base') ? baseTxt + t('app.obs_base_note') : applTxt;
+      const level = ob.confidence === 'high' ? t('app.level_high') : t('app.level_medium');
+      const lead = ob.confidence === 'high' ? t('app.obs_lead_high') : t('app.obs_lead_medium');
       addP(p => {
-        p.textContent = `${lead} שבמשק הבית שומרים שבת (ביטחון ${level}): ${detail}. תצפית סטטיסטית מהקובץ בלבד, לא ודאות`;
+        p.textContent = t('app.obs_line', { lead, level, detail });
       });
     }
     if (ins.notableDays.length) {
-      addP(p => { p.textContent = `ימים עם צריכה חריגה: ${ins.notableDays.map(fmtD).join(', ')}`; });
+      addP(p => { p.textContent = t('app.notable_days', { days: ins.notableDays.map(fmtD).join(', ') }); });
     }
     addP(p => {
-      p.textContent = `חלון השיא של תעו"ז: ${ins.taozPeakKwh.toFixed(0)} קוט"ש (${(ins.taozPeakCostShare * 100).toFixed(0)}% מהעלות אם היית בתעו"ז)`;
+      p.textContent = t('app.taoz_peak', { kwh: ins.taozPeakKwh.toFixed(0), pct: (ins.taozPeakCostShare * 100).toFixed(0) });
     });
     const renderEfficiency = () => {
       if (!ins.efficiency || !ins.efficiency.length) return;
       const headP = document.createElement('p');
       const hb = document.createElement('b');
-      hb.textContent = 'יעילות מכשירים (השוואה לטיפוסי מודרני, בלי פסיקה על מכשיר):';
+      hb.textContent = t('app.eff_header');
       headP.appendChild(hb);
       appText.appendChild(headP);
       const ul = document.createElement('ul');
       for (const n of ins.efficiency) {
         const li = document.createElement('li');
         li.textContent = n.text + ` (${CONF[n.confidence]})` +
-          (n.annualNis != null ? ` הערכת הפרש/עלות שנתית: ~${Math.round(n.annualNis).toLocaleString('he-IL')} ₪.` : '');
+          (n.annualNis != null ? t('app.eff_annual', { nis: Math.round(n.annualNis).toLocaleString('he-IL') }) : '');
         ul.appendChild(li);
       }
       appText.appendChild(ul);
       const srcP = document.createElement('p');
-      srcP.textContent = 'מקורות ההשוואה מפורטים בדף Sources (אומתו ב-2026-11-02).';
+      srcP.textContent = t('app.eff_sources');
       appText.appendChild(srcP);
     };
-    const KINDS = { washing_machine: 'מכונת כביסה אפשרית', oven: 'תנור אפייה אפשרי',
-      sustained_high: 'עומס גבוה ממושך (ייתכן מזגן/חימום/דוד - לא ניתן להבחין מהצריכה בלבד)' };
-    const CONF = { high: 'ביטחון גבוה', medium: 'ביטחון בינוני', low: 'ביטחון נמוך' };
+    const KINDS = { washing_machine: t('app.kind_washing_machine'), oven: t('app.kind_oven'),
+      sustained_high: t('app.kind_sustained_high') };
+    const CONF = { high: t('app.confidence_high'), medium: t('app.confidence_medium'), low: t('app.confidence_low') };
     const fmtT = d => `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
     const appText = $('applianceText');
     appText.replaceChildren();
     if (ins.appliances.length) {
       const headB = document.createElement('b');
-      headB.textContent = 'זיהוי מכשירים (הערכה הסתברותית מחתימת העומס בלבד, לא ודאות):';
+      headB.textContent = t('app.appliances_header');
       const headP = document.createElement('p');
       headP.appendChild(headB);
       appText.appendChild(headP);
@@ -211,12 +213,14 @@ $('go').addEventListener('click', async () => {
         const confs = {};
         evs.forEach(e => { confs[e.confidence] = (confs[e.confidence] || 0) + 1; });
         const li = document.createElement('li');
-        li.textContent = `${label}: ${evs.length} אירועים (${Object.entries(confs).map(([c, n]) => `${n} ב${CONF[c]}`).join(', ')}).`;
+        li.textContent = t('app.appliance_line', { label, count: evs.length, confs: Object.entries(confs).map(([c, n]) => t('app.appliance_conf_part', { n, conf: CONF[c] })).join(', ') });
         const sub = document.createElement('ul');
         for (const e of evs.slice().sort((x, y) => y.excessKwh - x.excessKwh).slice(0, 2)) {
           const ex = document.createElement('li');
-          ex.textContent = `למשל יום ${HEDAY[e.start.getDay()]} ${String(e.start.getDate()).padStart(2, '0')}.${String(e.start.getMonth() + 1).padStart(2, '0')} ` +
-            `${fmtT(e.start)}-${fmtT(e.end)} (${e.excessKwh.toFixed(1)} קוט"ש, ${CONF[e.confidence]}): ${e.pattern}`;
+          ex.textContent = t('app.appliance_example', {
+            day: HEDAY[e.start.getDay()],
+            date: String(e.start.getDate()).padStart(2, '0') + '.' + String(e.start.getMonth() + 1).padStart(2, '0'),
+            start: fmtT(e.start), end: fmtT(e.end), kwh: e.excessKwh.toFixed(1), conf: CONF[e.confidence], pattern: e.pattern });
           sub.appendChild(ex);
         }
         li.appendChild(sub);

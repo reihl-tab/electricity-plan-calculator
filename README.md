@@ -82,6 +82,18 @@ IEC/EA cross-checks, and supplier-site-verified plan data (2026-09-27).
 - Efficiency context compares measured patterns to typical-technology benchmarks from `data/benchmarks.json` (washer kWh/cycle vs a modern A-rated eco 40-60 cycle; conditional inverter-AC field-study range; fridge floor context) - context only, never a verdict, no brand/model, sources with access dates on the Sources page (`web/sources.html`).
 - Shabbat-observance detection is statistical and opt-out by silence: it combines an elevated Shabbat-night base (plate/urn signature) with near-absence of appliance starts on Shabbat, shows "נראה שבמשק הבית שומרים שבת" only above its confidence threshold with the supporting numbers, stays neutral below it, and never concludes non-observance.
 
+## Translations (i18n)
+
+All user-visible strings live in one file: `i18n/strings.json`
+(`key -> { he, ... }`). Python and the web page read the same file (the web
+bundle `web/i18n-data.js` is generated - run `scripts/gen_web_data.py` after
+editing). Adding a language means adding its entry under every key and in the
+`languages` map; tests enforce completeness and matching placeholders. The
+site switches language with a `?lang=` URL parameter (no cookies, no network);
+Hebrew is the default. The cautious/probabilistic phrasing of the insight
+texts must survive translation exactly - every language needs a careful
+review, ideally by a native speaker.
+
 ## Development
 
 `scripts/generate_og_assets.py` regenerates the share/favicon PNGs in `web/` from the synthetic sample data (needs Pillow and Noto Sans Hebrew at `/usr/share/fonts/truetype/noto/`; the PNGs are committed, so CI does not run it).

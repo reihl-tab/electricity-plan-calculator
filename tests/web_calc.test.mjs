@@ -160,7 +160,7 @@ function setBlock(ivs, startIdx, kws) {
   check('icon: apple-touch-icon link', html.includes('rel="apple-touch-icon"'));
 
   // repo footer link (issue #28): plain <a>, and it is the ONLY external URL reference
-  check('footer: links only, no prefix', html.includes('<a href="https://github.com/reihlinstinct/electricity-plan-calculator">GitHub</a> · <a href="sources.html">Sources</a>') && !html.includes('קוד מקור פתוח'));
+  check('footer: links only, no prefix', html.includes('<a href="https://github.com/reihlinstinct/electricity-plan-calculator" data-i18n="ui.footer_github">GitHub</a> · <a href="sources.html" data-i18n="ui.footer_sources">Sources</a>') && !html.includes('קוד מקור פתוח'));
   check('footer: no bare URL shown', !html.includes('>github.com/reihlinstinct'));
   const src = readFileSync(join(root, 'web', 'sources.html'), 'utf-8');
   check('sources: tariff source links', src.includes('gov.il/BlobFolder') && src.includes('shtipser.com/plans/'));
@@ -169,12 +169,13 @@ function setBlock(ivs, startIdx, kws) {
   check('sources: RTL static, no external loads', src.includes('dir="rtl"') && !src.includes('<script src=') && !src.includes('@import'));
   check('sources: access date recorded', src.includes('2026-11-02'));
   const appJs = readFileSync(join(root, 'web', 'app.js'), 'utf-8');
-  check('app: base label is רצפת צריכה', appJs.includes('רצפת צריכה (בסיס):') && !appJs.includes('עומס בסיס לילי'));
+  const i18nData = readFileSync(join(root, 'web', 'i18n-data.js'), 'utf-8');
+  check('app: base label is רצפת צריכה', i18nData.includes('רצפת צריכה (בסיס):') && !i18nData.includes('עומס בסיס לילי'));
   check('app: efficiency renderer', appJs.includes('renderEfficiency'));
   const extRefs = html.match(/(?:src|href)="https?:\/\/[^"]+"/g) || [];
   check('zero external requests: only the repo link is external', extRefs.length === 1 && extRefs[0].includes('github.com/reihlinstinct/electricity-plan-calculator'));
   // CSV export guide (issue #32): web page + images + link from the upload box
-  check('guide: linked near upload', html.includes('<a href="guide.html">'));
+  check('guide: linked near upload', html.includes('<a href="guide.html" data-i18n="ui.guide_link">'));
   const guide = readFileSync(join(root, 'web', 'guide.html'), 'utf-8');
   check('guide: rtl hebrew page', guide.includes('dir="rtl"') && guide.includes('lang="he"'));
   const guideImgs = [...guide.matchAll(/<img src="([^"]+)"/g)].map(m => m[1]);
@@ -198,6 +199,24 @@ function setBlock(ivs, startIdx, kws) {
   check('favicon is square and small', fw === fh && fw <= 64);
 }
 
+
+// --- i18n (issue #44): every data-i18n key exists in the bundled strings, placeholders substitute ---
+{
+  const { t } = await import('../web/i18n.js');
+  check('i18n: t substitutes', t('app.days_measured', { days: 3 }, 'he') === '3 ימי מדידה');
+  check('i18n: unknown key returns key', t('no.such.key', {}, 'he') === 'no.such.key');
+  const { I18N } = await import('../web/i18n-data.js');
+  let missing = [];
+  for (const page of ['index.html', 'guide.html', 'sources.html']) {
+    const body = readFileSync(join(root, 'web', page), 'utf-8');
+    for (const m of body.match(/data-i18n(?:-title)?="[^"]+"/g) || []) {
+      const key = m.replace(/^data-i18n(?:-title)?="/, '').replace(/"$/, '');
+      if (!I18N.strings[key]) missing.push(`${page}:${key}`);
+    }
+  }
+  check('i18n: all page keys exist in strings', missing.length === 0);
+  check('i18n: he is default rtl', I18N.languages.he && I18N.languages.he.default && I18N.languages.he.dir === 'rtl');
+}
 
 // --- link hygiene (issue #45): repo/source links point at main, hosts are expected, internal links exist ---
 import { existsSync, readdirSync } from 'node:fs';
