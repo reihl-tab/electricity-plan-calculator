@@ -5,7 +5,7 @@ import argparse
 import logging
 import sys
 
-from . import __version__, analysis, cost, insights, report, tariffs, weather
+from . import __version__, analysis, cost, i18n, insights, report, tariffs, weather
 from . import parser as csv_parser
 
 log = logging.getLogger(__name__)
@@ -21,6 +21,11 @@ def build_arg_parser() -> argparse.ArgumentParser:
     ap.add_argument("--version", action="version", version=f"%(prog)s {__version__}")
     ap.add_argument("--debug", action="store_true", help="verbose diagnostic logging to stderr (off by default)")
     ap.add_argument("--tariffs", metavar="JSON", help="override data/tariffs.json")
+    ap.add_argument(
+        "--lang",
+        choices=sorted(i18n.languages()),
+        help="output language (default: the strings file's default language)",
+    )
     sub = ap.add_subparsers(dest="command", required=True)
 
     def add_file_arg(p):
@@ -102,11 +107,13 @@ def _weather_block(args, summary) -> str:
 def main(argv: list[str] | None = None) -> int:
     args = build_arg_parser().parse_args(argv)
     _configure_logging(args.debug)
+    if args.lang:
+        i18n.set_active_language(args.lang)
     catalog = None
     if args.command in ("plans", "report"):
         catalog = tariffs.load_catalog(args.tariffs)
         if args.current_plan:
-            labels = [cost.FLAT_LABEL, cost.TAOZ_LABEL] + [p.label for p in catalog.plans]
+            labels = [cost.flat_label(), cost.taoz_label()] + [p.label for p in catalog.plans]
             matches = [lbl for lbl in labels if args.current_plan in lbl]
             if len(matches) != 1:
                 valid = "\n".join(f"  {lbl}" for lbl in labels)

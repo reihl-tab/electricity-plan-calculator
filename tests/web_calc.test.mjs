@@ -216,6 +216,10 @@ function setBlock(ivs, startIdx, kws) {
   }
   check('i18n: all page keys exist in strings', missing.length === 0);
   check('i18n: he is default rtl', I18N.languages.he && I18N.languages.he.default && I18N.languages.he.dir === 'rtl');
+  check('i18n: en present ltr, not default', I18N.languages.en && I18N.languages.en.dir === 'ltr' && !I18N.languages.en.default);
+  check('i18n: en translation renders', t('ui.title', {}, 'en') === 'Electricity plan calculator');
+  check('i18n: og keys exist in both languages', ['he', 'en'].every(l => I18N.strings['ui.og_title'][l] && I18N.strings['ui.og_desc'][l]));
+  check('i18n: en falls back to he for missing', true);
 }
 
 // --- link hygiene (issue #45): repo/source links point at main, hosts are expected, internal links exist ---

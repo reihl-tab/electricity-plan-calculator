@@ -51,8 +51,10 @@ household's **actual** interval-level usage, with annual NIS cost estimates.
   `[data-i18n]` text by the `?lang=` URL parameter (shareable, no cookies)
   and sets `<html lang dir>`. The selector is link-based at the top of every
   page. og/meta tags stay Hebrew for now.
-- The CLI renders in the default language; a `--lang` flag arrives with the
-  first additional language.
+- The CLI renders in the default language unless `--lang` is given; English
+  is the first additional language. og/twitter meta tags are swapped by JS on
+  language switch (crawlers that do not run JS still see the default Hebrew
+  tags baked into the HTML - a known limitation of a fully static site).
 
 ## Logging
 Python `logging` to stderr. Default level WARNING (silent on success).

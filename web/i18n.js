@@ -29,6 +29,20 @@ export function applyI18n(doc = document) {
   const meta = I18N.languages[lang];
   doc.documentElement.lang = lang;
   doc.documentElement.dir = meta.dir;
+  // per-language og/twitter meta (JS-only: server-side scrapers that do not
+  // run JavaScript still see the default-language tags baked into the HTML)
+  const og = { 'og:title': 'ui.og_title', 'og:description': 'ui.og_desc' };
+  for (const [prop, key] of Object.entries(og)) {
+    const el = doc.querySelector(`meta[property="${prop}"]`);
+    if (el && I18N.strings[key]) el.setAttribute('content', t(key, {}, lang));
+  }
+  for (const name of ['twitter:title', 'twitter:description']) {
+    const key = name === 'twitter:title' ? 'ui.og_title' : 'ui.og_desc';
+    const el = doc.querySelector(`meta[name="${name}"]`);
+    if (el && I18N.strings[key]) el.setAttribute('content', t(key, {}, lang));
+  }
+  const locale = doc.querySelector('meta[property="og:locale"]');
+  if (locale) locale.setAttribute('content', { he: 'he_IL', en: 'en_US' }[lang] || lang);
   for (const el of doc.querySelectorAll('[data-i18n]')) {
     const key = el.getAttribute('data-i18n');
     if (el.hasAttribute('data-i18n-alt')) el.setAttribute('alt', t(key, {}, lang));

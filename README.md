@@ -33,6 +33,7 @@ Try it on the synthetic sample: `iec-calc report data/sample_consumption.csv`
 
 ## Useful flags
 
+- `--lang {he,en}` - output language (default: he). The web page switches with `?lang=` instead
 - `--phase {single,three}` - meter phase for the fixed-fee calculation (default: single)
 - `--no-smart-meter` - exclude smart-meter plans; `--gas` / `--hot` - OPT IN to gas-customer (Amisragas) / HOT-customer plans (excluded by default)
 - `--current-plan LABEL` - mark your current plan (substring match; flat tariff and Taoz
@@ -87,7 +88,8 @@ IEC/EA cross-checks, and supplier-site-verified plan data (2026-09-27).
 All user-visible strings live in one file: `i18n/strings.json`
 (`key -> { he, ... }`). Python and the web page read the same file (the web
 bundle `web/i18n-data.js` is generated - run `scripts/gen_web_data.py` after
-editing). Adding a language means adding its entry under every key and in the
+editing). Available languages: Hebrew (default) and
+English. Adding a language means adding its entry under every key and in the
 `languages` map; tests enforce completeness and matching placeholders. The
 site switches language with a `?lang=` URL parameter (no cookies, no network);
 Hebrew is the default. The cautious/probabilistic phrasing of the insight

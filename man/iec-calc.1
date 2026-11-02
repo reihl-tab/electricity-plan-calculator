@@ -5,6 +5,7 @@ iec-calc \- analyze IEC consumption exports and rank Israeli electricity plans
 .B iec-calc
 .RI [ --debug ]
 .RI [ --tariffs " JSON" ]
+.RI [ --lang " LANG" ]
 .BR analyze " | " plans " | " report
 .I EXPORT.csv
 .RI [ --weather ]
@@ -48,6 +49,9 @@ cost - context only, never a verdict or brand/model claim.
 .TP
 .B --debug
 Verbose diagnostic logging to stderr. Off by default.
+.TP
+.BI --lang " LANG"
+Output language: he (default) or en. Affects all report text and plan labels.
 .TP
 .BI --tariffs " JSON"
 Use an alternative tariff catalog instead of the bundled data/tariffs.json.

@@ -68,7 +68,7 @@ def format_ranking(
             )
         lines.append(
             f"{i:2d}. {c.label:<48} {_nis(c.annual_cost):>9} | "
-            f"חיסכון {_nis(c.savings_vs_flat_annual):>7}{marker}"
+            f"{_t('report.savings_word')} {_nis(c.savings_vs_flat_annual):>7}{marker}"
         )
     lines += [
         "",
