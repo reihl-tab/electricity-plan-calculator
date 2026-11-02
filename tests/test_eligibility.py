@@ -47,3 +47,12 @@ def test_default_customer_includes_everything():
     ranked = rank_plans(_intervals(), cat, days=1)
     assert len(ranked) == 22
     assert unavailable_plans(cat, Customer()) == []
+
+
+def test_eligibility_flags_come_from_data_not_text():
+    # review follow-up: no substring matching on the eligibility text
+    cat = load_catalog()
+    flagged = [p for p in cat.plans if p.requires_gas_customer or p.requires_hot_customer]
+    assert flagged, "data should carry explicit requirement flags"
+    for p in flagged:
+        assert not plan_available(p, Customer(gas_customer=False, hot_customer=False))
