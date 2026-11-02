@@ -81,7 +81,7 @@ export function planApplies(plan, when) {
 export function rankPlans(intervals, opts = {}) {
   const flat = TARIFFS.regulated.flat_rate_per_kwh;
   const phase = opts.phase || 'single';
-  const vat = TARIFFS.vat_included ? 1.18 : 1.18;
+  const vat = 1 + TARIFFS.vat_rate;
   const iecFixed = (TARIFFS.regulated.fixed_fees_monthly_pre_vat[phase === 'three' ? 'three_phase' : 'single_phase'].total) * 12 * vat;
   const taozFixed = TARIFFS.taoz.fixed_fee_monthly_pre_vat.total * 12 * vat;
   const days = summarize(intervals).days;

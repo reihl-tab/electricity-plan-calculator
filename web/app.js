@@ -52,7 +52,6 @@ function plansChart(canvas, plans, currentLabel) {
     ctx.fillStyle = '#333'; ctx.textAlign = 'right';
     ctx.fillText(p.label.length > 32 ? p.label.slice(0, 31) + '…' : p.label, w - 10 - bwv - 6, y + bh - 6);
     ctx.textAlign = 'left';
-    ctx.fillText(nis(p.annual), w - 4 - bwv - 250 > 0 ? 4 : 4, y + bh - 6);
     ctx.fillText(nis(p.annual), 4, y + bh - 6);
   });
 }
