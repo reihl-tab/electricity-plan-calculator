@@ -68,10 +68,10 @@ class SupplierPlan:
     window: Window | None  # None = all hours
     meter: str  # "any" or "smart"
     eligibility: str
-    requires_gas_customer: bool = False
-    requires_hot_customer: bool = False
     source: str
     verified: str
+    requires_gas_customer: bool = False
+    requires_hot_customer: bool = False
 
     def applies(self, when: datetime) -> bool:
         return self.window is None or self.window.contains(when)
