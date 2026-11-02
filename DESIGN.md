@@ -53,6 +53,11 @@ costs, API URLs. Never logs customer metadata (name/address/contract/meter).
 - Parser output used by report/CLI never prints customer metadata.
 - CI runs a privacy scan (grep for meter/contract patterns) on the tree.
 
+## Documentation
+- README.md: install, quickstart, examples, data sources.
+- A groff man page (`man/iec-calc.1`) ships with the CLI and is updated
+  whenever CLI flags or behavior change (project rule).
+
 ## Testing / CI
 - pytest + pytest-cov, coverage gate >= 80%.
 - ruff lint, pip-audit for dependency vulnerabilities.
