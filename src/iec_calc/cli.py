@@ -43,6 +43,8 @@ def build_arg_parser() -> argparse.ArgumentParser:
                         help="exclude gas-customer-only plans (Amisragas)")
         sp.add_argument("--no-hot", dest="hot_customer", action="store_false",
                         help="exclude HOT/NEXT-customer-only plans")
+        sp.add_argument("--current-plan", metavar="LABEL",
+                        help="label (or substring) of your current plan, to show savings vs it")
 
     p = sub.add_parser("plans", help="rank all electricity plans by annual cost on your data")
     add_file_arg(p)
@@ -83,6 +85,22 @@ def _weather_block(args, summary) -> str:
 def main(argv: list[str] | None = None) -> int:
     args = build_arg_parser().parse_args(argv)
     _configure_logging(args.debug)
+    catalog = None
+    if args.command in ("plans", "report"):
+        catalog = tariffs.load_catalog(args.tariffs)
+        if args.current_plan:
+            labels = [cost.FLAT_LABEL, cost.TAOZ_LABEL] + [p.label for p in catalog.plans]
+            matches = [lbl for lbl in labels if args.current_plan in lbl]
+            if len(matches) != 1:
+                valid = "\n".join(f"  {lbl}" for lbl in labels)
+                reason = (
+                    f"no plan matches '{args.current_plan}'"
+                    if not matches
+                    else f"'{args.current_plan}' is ambiguous ({len(matches)} matches: "
+                         + "; ".join(matches) + ")"
+                )
+                print(f"error: {reason}. valid labels:\n{valid}", file=sys.stderr)
+                return 2
     try:
         intervals = csv_parser.parse(args.csv)
     except (OSError, ValueError) as exc:
@@ -95,7 +113,6 @@ def main(argv: list[str] | None = None) -> int:
         if getattr(args, "weather", False):
             out.append(_weather_block(args, summary))
     if args.command in ("plans", "report"):
-        catalog = tariffs.load_catalog(args.tariffs)
         customer = cost.Customer(
             smart_meter=args.smart_meter,
             gas_customer=args.gas_customer,
@@ -106,7 +123,11 @@ def main(argv: list[str] | None = None) -> int:
             intervals, catalog, summary.days, phase=args.phase, customer=customer
         )
         excluded = cost.unavailable_plans(catalog, customer)
-        out.append(report.format_ranking(costs, summary.days, catalog.flat_rate, excluded))
+        out.append(
+            report.format_ranking(
+                costs, summary.days, catalog, excluded, args.current_plan
+            )
+        )
     print("\n\n".join(out))
     return 0
 
