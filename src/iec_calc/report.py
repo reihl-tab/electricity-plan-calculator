@@ -4,7 +4,7 @@ from __future__ import annotations
 from .analysis import Summary
 from .cost import PlanCost
 from .tariffs import Catalog
-from .weather import WeatherReport
+from .weather import HvacReport, WeatherReport
 
 
 def _nis(v: float) -> str:
@@ -31,7 +31,7 @@ def format_analysis(s: Summary) -> str:
 def format_weather(w: WeatherReport) -> str:
     return "\n".join(
         [
-            "רגישות למזג אוויר",
+            "רגישות למזג אוויר (אומדן ניסיוני, לא חלק מהמלצת המסלול)",
             "=================",
             f"מתאם צריכה-טמפ' (יומי): r={w.correlation:.2f} "
             f"(טווח {w.temp_min:.0f}-{w.temp_max:.0f} מעלות, {w.days} ימים)",
@@ -99,3 +99,30 @@ def format_ranking(
 
 def lines_to_text(lines: list[str]) -> str:
     return "\n".join(lines)
+
+
+def format_hvac(h: HvacReport) -> str:
+    lines = [
+        "פיצול קירור/חימום (אומדן ניסיוני, לא חלק מהמלצת המסלול)",
+        "=============================",
+        (
+            f"קירור: {h.kwh_per_cooling_degree:+.2f} קוט\"ש/יום לכל מעלה מעל {h.cooling_base:.0f}°"
+            if h.kwh_per_cooling_degree is not None
+            else "קירור: אין מספיק שונות בטמפרטורה למדידה"
+        ) + " | " + (
+            f"חימום: {h.kwh_per_heating_degree:+.2f} קוט\"ש/יום לכל מעלה מתחת {h.heating_base:.0f}°"
+            if h.kwh_per_heating_degree is not None
+            else "חימום: אין מספיק שונות בטמפרטורה למדידה"
+        ),
+        f"הסבר המודל: R²={h.r_squared:.2f} ({h.days} ימים)",
+        "",
+        "חודש     " + '  סה"כ' + "   בסיס" + '  סופ"ש' + "   קירור" + "   חימום" + "    שאר",
+    ]
+    for m in h.monthly:
+        cells = [m.total_kwh, m.base_kwh, m.weekend_kwh, m.cooling_kwh, m.heating_kwh, m.residual_kwh]
+        # round-off can leave a tiny negative that renders as "-0"; snap to 0
+        cells = [0.0 if round(v) == 0 else v for v in cells]
+        lines.append(
+            f"{m.month:<9}" + "".join(f"{v:>8.0f}" for v in cells)
+        )
+    return lines_to_text(lines)
