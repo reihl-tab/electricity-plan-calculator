@@ -775,6 +775,10 @@ export const I18N = {
     "report.savings_word": {
       "he": "חיסכון",
       "en": "saves"
+    },
+    "report.weather_no_overlap": {
+      "he": "רגישות למזג אוויר: לא נמצאו מספיק ימים חופפים.",
+      "en": "Weather sensitivity: not enough overlapping days found."
     }
   }
 };

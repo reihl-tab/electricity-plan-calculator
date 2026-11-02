@@ -17,6 +17,7 @@ from pathlib import Path
 
 from . import analysis, cost, insights, report, tariffs, weather
 from . import parser as csv_parser
+from .i18n import t as _t
 
 log = logging.getLogger(__name__)
 
@@ -148,7 +149,7 @@ def _call_tool(name: str, arguments: dict) -> dict:
             out.append(
                 report.format_weather(w)
                 if w is not None
-                else "רגישות למזג אוויר: לא נמצאו מספיק ימים חופפים."
+                else _t("report.weather_no_overlap")
             )
         return _text_result("\n\n".join(out))
 
