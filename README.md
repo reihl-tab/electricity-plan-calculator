@@ -17,7 +17,10 @@ pip install -e '.[dev]'
 ## Quickstart
 
 ```sh
-iec-calc report path/to/your-iec-export.csv            # analysis + plan ranking
+iec-calc report path/to/your-iec-export.csv            # analysis + plan ranking + insights
+#                                                       (observations only: peak hours, baseline,
+#                                                       Taoz peak share, probabilistic appliance
+#                                                       signatures - no causal claims)
 iec-calc analyze path/to/your-iec-export.csv           # consumption profile only
 iec-calc analyze path/to/your-iec-export.csv --weather # + temperature sensitivity
 iec-calc plans  path/to/your-iec-export.csv            # plan ranking only
@@ -68,6 +71,7 @@ IEC/EA cross-checks, and supplier-site-verified plan data (2026-09-27).
 - Annualization scales your measured window to 365 days; a single-season
   export skews summer/winter estimates. Use a 12-month export for decisions.
 - Annual costs include fixed fees (incl. VAT): identical for flat and supplier plans (single/three-phase via `--phase`); Taoz's fixed fee is higher and included explicitly.
+- The Shabbat split (Friday sunset to Saturday nightfall) uses fixed Jerusalem coordinates with a NOAA sunset approximation; times can differ from local calendars by a few minutes.
 
 ## Development
 
