@@ -1,4 +1,4 @@
-// GENERATED from data/tariffs.json by scripts/gen_web_data.py - do not edit by hand
+// GENERATED from data/tariffs.json and data/benchmarks.json by scripts/gen_web_data.py - do not edit by hand
 export const TARIFFS = {
   "version": "2026-07-01",
   "retrieved": "2026-11-02",
@@ -7,7 +7,7 @@ export const TARIFFS = {
   "notes": "Rates include 18% VAT. Supplier discounts apply to the energy (per-kWh) component only. Fixed monthly fees are identical for flat and supplier plans (single-phase 25.57 / three-phase 27.09 NIS pre-VAT, schedule 5.4-1); the Taoz fixed fee is higher (47.63 pre-VAT). Taoz holidays: yom-tov days and eves are off-peak in summer/transition only (decision 63609); winter peak applies daily.",
   "sources": [
     {
-      "name": "Electricity Authority tariff book, July 2026 (schedule 5.2-1, low voltage)",
+      "name": "Electricity Authority tariff book, January 2026 (schedule 5.2-1, low voltage)",
       "url": "https://www.gov.il/BlobFolder/generalpage/maagar_tarrifr_histoty/he/sefer_tariff_01_2026.pdf",
       "verified": "2026-08-06"
     },
@@ -408,4 +408,58 @@ export const TARIFFS = {
     }
   ],
   "vat_rate": 0.18
+};
+export const BENCHMARKS = {
+  "accessed": "2026-11-02",
+  "note": "Typical-technology benchmark figures for efficiency context only. Never a verdict on a specific appliance.",
+  "washer": {
+    "typical_modern_kwh_per_cycle": 0.5,
+    "israel_2021_kwh_per_cycle": 0.93,
+    "israel_2024_kwh_per_cycle": 0.55,
+    "unit_note": "Benchmark 0.5 kWh/cycle is consistent with the Israeli 2024 average 0.55 (ynet); the EC page gives the eco 40-60 label methodology (kWh per 100 cycles), it is not the source of the figure. Program and temperature change consumption materially",
+    "sources": [
+      {
+        "label": "European Commission - washing machines energy label (consumption per 100 cycles, eco 40-60)",
+        "url": "https://energy-efficient-products.ec.europa.eu/product-list/washing-machines_en"
+      },
+      {
+        "label": "Israeli Ministry of Energy market study via ynet: 0.93 kWh/cycle (2021) vs 0.55 (2024), -41%",
+        "url": "https://www.ynet.co.il/economy/article/h1tu9ogzgl"
+      }
+    ]
+  },
+  "ac": {
+    "inverter_savings_min": 0.2,
+    "inverter_savings_max": 0.4,
+    "unit_note": "Range across studies for inverter vs on/off room AC: 11-38% (Istanbul field test), ~24% (Saudi Arabia 1989: measured single-speed unit vs simulated inverter), ~44% (Jeddah)",
+    "sources": [
+      {
+        "label": "Istanbul Technical University field test: inverter saves 11-38%",
+        "url": "https://research.itu.edu.tr/en/publications/an-experimental-investigation-of-energy-saving-potentials-for-roo/"
+      },
+      {
+        "label": "KFUPM 1989 (ASHRAE Transactions): measured single-speed unit vs simulated inverter; inverter used 24% less energy",
+        "url": "https://pure.kfupm.edu.sa/en/publications/an-assessment-of-inverter-driven-variable-speed-air-conditioners-/"
+      },
+      {
+        "label": "Springer (Jeddah): inverter saves up to 44%",
+        "url": "https://link.springer.com/article/10.1007/s41825-020-00033-y"
+      }
+    ]
+  },
+  "fridge": {
+    "typical_modern_kwh_per_year": 181,
+    "old_1990_kwh_per_year": 477,
+    "unit_note": "EU average fridge-freezer, kWh/year; 2020 vs 1990",
+    "sources": [
+      {
+        "label": "European Commission - fridges and freezers (181 kWh/a in 2020, 477 kWh/a in 1990)",
+        "url": "https://energy-efficient-products.ec.europa.eu/product-list/fridges-and-freezers_en"
+      },
+      {
+        "label": "Israeli Ministry of Energy market study via ynet: -29% fridge consumption 2021->2024, ~80 NIS/year",
+        "url": "https://www.ynet.co.il/economy/article/h1tu9ogzgl"
+      }
+    ]
+  }
 };

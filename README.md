@@ -61,7 +61,7 @@ Try it on the synthetic sample: `iec-calc report data/sample_consumption.csv`
 
 All rates, discounts, eligibility notes, source URLs and verification dates
 live in [`data/tariffs.json`](data/tariffs.json). Updating prices = editing
-that one file. Sources: Electricity Authority tariff book (July 2026),
+that one file. Sources: Electricity Authority tariff book (January 2026),
 IEC/EA cross-checks, and supplier-site-verified plan data (2026-09-27).
 
 ## Privacy
@@ -78,6 +78,8 @@ IEC/EA cross-checks, and supplier-site-verified plan data (2026-09-27).
   export skews summer/winter estimates. Use a 12-month export for decisions.
 - Annual costs include fixed fees (incl. VAT): identical for flat and supplier plans (single/three-phase via `--phase`); Taoz's fixed fee is higher and included explicitly.
 - The Shabbat split (Friday sunset to Saturday nightfall) uses fixed Jerusalem coordinates with a NOAA sunset approximation; times can differ from local calendars by a few minutes.
+- The night base load is labelled "רצפת צריכה (בסיס)" with a plain-language explanation (fridge always on + many always-plugged devices, each drawing little).
+- Efficiency context compares measured patterns to typical-technology benchmarks from `data/benchmarks.json` (washer kWh/cycle vs a modern A-rated eco 40-60 cycle; conditional inverter-AC field-study range; fridge floor context) - context only, never a verdict, no brand/model, sources with access dates on the Sources page (`web/sources.html`).
 - Shabbat-observance detection is statistical and opt-out by silence: it combines an elevated Shabbat-night base (plate/urn signature) with near-absence of appliance starts on Shabbat, shows "נראה שבמשק הבית שומרים שבת" only above its confidence threshold with the supporting numbers, stays neutral below it, and never concludes non-observance.
 
 ## Development
