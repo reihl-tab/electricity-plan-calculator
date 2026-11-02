@@ -17,7 +17,7 @@ $('csv').addEventListener('change', () => { $('go').disabled = !$('csv').files.l
     ...TARIFFS.supplier_plans.map(p => `${p.supplier} - ${p.plan}`)];
   for (const l of labels) { const o = document.createElement('option'); o.value = l; o.textContent = l; sel.appendChild(o); }
 }
-$('sources').textContent = TARIFFS.sources.map(s => new URL(s.url).hostname).join(', ');
+$('sources').textContent = [...new Set(TARIFFS.sources.map(s => new URL(s.url).hostname))].join(', ');
 
 function axis(ctx, w, h, pad) {
   ctx.strokeStyle = '#999'; ctx.lineWidth = 1;
