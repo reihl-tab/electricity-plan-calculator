@@ -7,28 +7,13 @@ export function dateKey(d) {
   // local date (never toISOString: UTC conversion shifts days around midnight)
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 }
-export const CITIES = {
-  'ירושלים': [31.7683, 35.2137], 'תל אביב': [32.0853, 34.7818], 'חיפה': [32.7940, 34.9896],
-  'באר שבע': [31.2529, 34.7915], 'אילת': [29.5577, 34.9519], 'נתניה': [32.3215, 34.8532],
-  'חולון': [32.0103, 34.7744], 'פתח תקווה': [32.0871, 34.8878], 'אשדוד': [31.8044, 34.6553],
-  'אשקלון': [31.6688, 34.5743], 'ראשון לציון': [31.9730, 34.7925], 'מודיעין': [31.8969, 35.0195],
-  'כפר סבא': [32.1750, 34.9069], 'רעננה': [32.1848, 34.8713], 'הרצליה': [32.1624, 34.8447],
-  'טבריה': [32.7922, 35.5312], 'צפת': [32.9646, 35.4960], 'עפולה': [32.6078, 35.2897],
-  'נצרת': [32.6996, 35.3035], 'עכו': [32.9331, 35.0827], 'כרמיאל': [32.9136, 35.2963],
-  'רמת גן': [32.0684, 34.8248], 'בני ברק': [32.0831, 34.8338], 'רחובות': [31.8928, 34.8113],
-};
 
 // --- CSV parsing (IEC export: metadata header, then interval rows) ---
 export function parseCsv(text) {
   const rows = text.split(/\r?\n/);
   const intervals = [];
-  let city = null;
   for (const line of rows) {
     const cells = line.split(',').map(c => c.trim().replace(/^"|"$/g, ''));
-    if (cells.length === 3 && cells[2] && /^\d{12}$/.test(cells[2]) && cells[1]) {
-      const parts = cells[1].trim().split(/\s+/);
-      city = parts[parts.length - 1] || null; // last word of the address = city
-    }
     if (cells.length >= 6 && /^\d{2}\/\d{2}\/\d{4}$/.test(cells[2]) && /^\d{1,2}:\d{2}$/.test(cells[3])) {
       const [dd, mm, yyyy] = cells[2].split('/').map(Number);
       let [hh, mi] = cells[3].split(':').map(Number);
@@ -39,7 +24,7 @@ export function parseCsv(text) {
     }
   }
   if (!intervals.length) throw new Error('לא נמצאו שורות צריכה בקובץ. ודאו שזה ייצוא צריכה של חברת החשמל.');
-  return { intervals, city };
+  return intervals;
 }
 
 // --- analysis ---
@@ -118,79 +103,4 @@ export function rankPlans(intervals, opts = {}) {
   }
   out.sort((a, b) => a.annual - b.annual);
   return out;
-}
-
-// --- weather ---
-export function ols(rows, y) {
-  const n = rows[0].length;
-  const amat = Array.from({ length: n }, (_, i) => Array.from({ length: n }, (_, j) => rows.reduce((s, r) => s + r[i] * r[j], 0)));
-  const bvec = Array.from({ length: n }, (_, i) => rows.reduce((s, r, k) => s + r[i] * y[k], 0));
-  for (let i = 0; i < n; i++) {
-    let pr = i;
-    for (let r = i + 1; r < n; r++) if (Math.abs(amat[r][i]) > Math.abs(amat[pr][i])) pr = r;
-    if (Math.abs(amat[pr][i]) < 1e-12) throw new Error('singular design matrix');
-    [amat[i], amat[pr]] = [amat[pr], amat[i]];
-    [bvec[i], bvec[pr]] = [bvec[pr], bvec[i]];
-    const piv = amat[i][i];
-    for (let j = i; j < n; j++) amat[i][j] /= piv;
-    bvec[i] /= piv;
-    for (let k = 0; k < n; k++) if (k !== i) {
-      const f = amat[k][i];
-      for (let j = i; j < n; j++) amat[k][j] -= f * amat[i][j];
-      bvec[k] -= f * bvec[i];
-    }
-  }
-  const mean = y.reduce((a, b) => a + b, 0) / y.length;
-  const ssTot = y.reduce((s, v) => s + (v - mean) ** 2, 0);
-  const ssRes = rows.reduce((s, r, k) => s + (y[k] - r.reduce((a, x, j) => a + bvec[j] * x, 0)) ** 2, 0);
-  return { coef: bvec, r2: ssTot ? 1 - ssRes / ssTot : 0 };
-}
-
-export function pstdev(xs) {
-  const m = xs.reduce((a, b) => a + b, 0) / xs.length;
-  return Math.sqrt(xs.reduce((s, x) => s + (x - m) ** 2, 0) / xs.length);
-}
-
-export function hvacSplit(dailyKwh, temps, coolingBase = 22, heatingBase = 18) {
-  const days = Object.keys(dailyKwh).filter(d => temps[d] !== undefined).sort();
-  if (days.length < 7) return null;
-  const cdd = days.map(d => Math.max(0, temps[d] - coolingBase));
-  const hdd = days.map(d => Math.max(0, heatingBase - temps[d]));
-  const cddVar = pstdev(cdd) >= 0.2, hddVar = pstdev(hdd) >= 0.2;
-  if (!cddVar && !hddVar) return null;
-  const rows = days.map((d, i) => {
-    const row = [1, [5, 6].includes(new Date(d + 'T12:00:00').getDay()) ? 1 : 0];
-    if (cddVar) row.push(cdd[i]);
-    if (hddVar) row.push(hdd[i]);
-    return row;
-  });
-  const y = days.map(d => dailyKwh[d]);
-  let coef, r2;
-  try { ({ coef, r2 } = ols(rows, y)); } catch { return null; }
-  const b0 = coef[0], bW = coef[1];
-  let i2 = 2;
-  const bC = cddVar ? coef[i2++] : null;
-  const bH = hddVar ? coef[i2] : null;
-  const byMonth = {};
-  days.forEach((d, i) => {
-    const m = d.slice(0, 7);
-    byMonth[m] = byMonth[m] || { month: m, days: 0, total: 0, base: 0, weekend: 0, cooling: 0, heating: 0 };
-    const o = byMonth[m];
-    o.days++; o.total += y[i]; o.base += b0;
-    o.weekend += rows[i][1] ? bW : 0; o.cooling += (bC || 0) * cdd[i]; o.heating += (bH || 0) * hdd[i];
-  });
-  return { days: days.length, kwhPerCoolingDegree: bC, kwhPerHeatingDegree: bH, r2,
-           coolingBase, heatingBase, monthly: Object.values(byMonth) };
-}
-
-export function weatherSensitivity(dailyKwh, temps) {
-  const days = Object.keys(dailyKwh).filter(d => temps[d] !== undefined).sort();
-  if (days.length < 7) return null;
-  const ts = days.map(d => temps[d]);
-  if (pstdev(ts) < 1.0) return null;
-  const rows = days.map(d => [1, [5, 6].includes(new Date(d).getDay()) ? 1 : 0, temps[d]]);
-  const y = days.map(d => dailyKwh[d]);
-  const { coef: [, bW, bT], r2 } = ols(rows, y);
-  return { days: days.length, kwhPerDegree: bT, weekendExtra: bW, r2,
-           tempMin: Math.min(...ts), tempMax: Math.max(...ts) };
 }

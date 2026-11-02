@@ -1,13 +1,9 @@
 import { TARIFFS } from './tariffs-data.js';
-import { CITIES, parseCsv, summarize, rankPlans, weatherSensitivity, hvacSplit } from './calc.js';
+import { parseCsv, summarize, rankPlans } from './calc.js';
 
 const $ = id => document.getElementById(id);
 const nis = v => `${Math.round(v).toLocaleString('he-IL')} ₪`;
 
-const cityList = $('cities');
-for (const c of Object.keys(CITIES)) {
-  const o = document.createElement('option'); o.value = c; cityList.appendChild(o);
-}
 $('csv').addEventListener('change', () => { $('go').disabled = !$('csv').files.length; });
 
 // populate current-plan select from catalog
@@ -41,26 +37,6 @@ function barChart(canvas, labels, values, color) {
   ctx.fillText(max.toFixed(1), pad - 4, 20);
 }
 
-function scatterChart(canvas, xs, ys, days) {
-  const ctx = canvas.getContext('2d');
-  const w = canvas.width, h = canvas.height, pad = 40;
-  ctx.clearRect(0, 0, w, h); axis(ctx, w, h, pad);
-  const xMin = Math.min(...xs), xMax = Math.max(...xs), yMax = Math.max(...ys, 0.001);
-  const X = t => pad + (t - xMin) / (xMax - xMin || 1) * (w - pad - 20);
-  const Y = v => h - pad - (v / yMax) * (h - pad - 30);
-  ctx.fillStyle = '#0b6bcb';
-  xs.forEach((t, i) => { ctx.beginPath(); ctx.arc(X(t), Y(ys[i]), 3.5, 0, 7); ctx.fill(); });
-  // regression line
-  const n = xs.length, mx = xs.reduce((a, b) => a + b) / n, my = ys.reduce((a, b) => a + b) / n;
-  const slope = xs.reduce((s, x, i) => s + (x - mx) * (ys[i] - my), 0) / xs.reduce((s, x) => s + (x - mx) ** 2, 0);
-  ctx.strokeStyle = '#d32f2f'; ctx.lineWidth = 2; ctx.beginPath();
-  ctx.moveTo(X(xMin), Y(my + slope * (xMin - mx))); ctx.lineTo(X(xMax), Y(my + slope * (xMax - mx))); ctx.stroke();
-  ctx.fillStyle = '#333'; ctx.font = '12px sans-serif'; ctx.textAlign = 'center';
-  ctx.fillText('טמפרטורה יומית ממוצעת (°C)', w / 2, h - 6);
-  ctx.fillText(`${xMin.toFixed(0)}°`, X(xMin), h - pad + 14);
-  ctx.fillText(`${xMax.toFixed(0)}°`, X(xMax), h - pad + 14);
-}
-
 function plansChart(canvas, plans, currentLabel) {
   const ctx = canvas.getContext('2d');
   const w = canvas.width, h = canvas.height, pad = 8, labelW = 250;
@@ -81,31 +57,11 @@ function plansChart(canvas, plans, currentLabel) {
   });
 }
 
-async function fetchTemps(lat, lon, start, end) {
-  const url = `https://archive-api.open-meteo.com/v1/archive?latitude=${lat}&longitude=${lon}` +
-    `&start_date=${start}&end_date=${end}&daily=temperature_2m_mean&timezone=auto`;
-  const r = await fetch(url);
-  if (!r.ok) throw new Error('שגיאה בשליפת נתוני מזג אוויר');
-  const j = await r.json();
-  const out = {};
-  j.daily.time.forEach((d, i) => { if (j.daily.temperature_2m_mean[i] !== null) out[d] = j.daily.temperature_2m_mean[i]; });
-  return out;
-}
-
-async function geocode(city) {
-  if (CITIES[city]) return CITIES[city];
-  const r = await fetch(`https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(city)}&count=1&language=he`);
-  const j = await r.json();
-  if (j.results && j.results.length) return [j.results[0].latitude, j.results[0].longitude];
-  return null;
-}
-
 $('go').addEventListener('click', async () => {
   const err = $('err'); err.style.display = 'none';
   try {
     const text = await $('csv').files[0].text();
-    const { intervals, city } = parseCsv(text);
-    if (city && !$('city').value) $('city').value = city;
+    const intervals = parseCsv(text);
     const sum = summarize(intervals);
 
     $('summaryCard').style.display = '';
@@ -144,27 +100,6 @@ $('go').addEventListener('click', async () => {
       : '';
     $('plansNote').textContent = 'בתעו"ז התשלום הקבוע גבוה יותר. מסלולי שעות דורשים מונה חכם.';
 
-    if ($('weather').checked) {
-      $('status').textContent = 'שולף נתוני מזג אוויר...';
-      const [lat, lon] = (await geocode($('city').value || 'ירושלים')) || CITIES['ירושלים'];
-      const temps = await fetchTemps(lat, lon, days[0], days[days.length - 1]);
-      const w = weatherSensitivity(sum.daily.size ? Object.fromEntries(sum.daily) : {}, temps);
-      const hv = hvacSplit(Object.fromEntries(sum.daily), temps);
-      $('weatherCard').style.display = '';
-      $('weatherText').innerHTML = w
-        ? `רגישות (אחרי נטרול סופ"ש): <b>${w.kwhPerDegree >= 0 ? '+' : ''}${w.kwhPerDegree.toFixed(2)} קוט"ש/יום למעלה</b> · ` +
-          `סופ"ש: +${w.weekendExtra.toFixed(2)} קוט"ש/יום · הסבר המודל R²=${w.r2.toFixed(2)}`
-        : 'אין מספיק שונות בטמפרטורה בתקופה למדידת רגישות.';
-      const ts = days.filter(d => temps[d] !== undefined);
-      scatterChart($('chWeather'), ts.map(d => temps[d]), ts.map(d => sum.daily.get(d)));
-      $('hvacText').innerHTML = hv
-        ? `<p>קירור: <b>${hv.kwhPerCoolingDegree === null ? 'אין מספיק שונות' : '+' + hv.kwhPerCoolingDegree.toFixed(2) + ' קוט"ש/יום לכל מעלה מעל ' + hv.coolingBase + '°'}</b> · ` +
-          `חימום: <b>${hv.kwhPerHeatingDegree === null ? 'אין מספיק שונות' : '+' + hv.kwhPerHeatingDegree.toFixed(2) + ' קוט"ש/יום לכל מעלה מתחת ' + hv.heatingBase + '°'}</b></p>` +
-          '<table><tr><th>חודש</th><th>סה"כ</th><th>בסיס</th><th>סופ"ש</th><th>קירור</th><th>חימום</th></tr>' +
-          hv.monthly.map(m => `<tr><td>${m.month}</td><td>${m.total.toFixed(0)}</td><td>${m.base.toFixed(0)}</td>` +
-            `<td>${m.weekend.toFixed(0)}</td><td>${m.cooling.toFixed(0)}</td><td>${m.heating.toFixed(0)}</td></tr>`).join('') + '</table>'
-        : '';
-    }
     $('status').textContent = '';
   } catch (e) {
     err.textContent = e.message; err.style.display = '';
