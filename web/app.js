@@ -87,16 +87,30 @@ $('go').addEventListener('click', async () => {
     $('plansCard').style.display = '';
     plansChart($('chPlans'), ranked.slice(0, 14), currentLabel);
     const tbl = $('plansTable');
-    tbl.innerHTML = '<tr><th>#</th><th>מסלול</th><th>עלות שנתית</th><th>חיסכון מול תעריף אחיד</th></tr>' +
-      ranked.map((p, i) =>
-        `<tr class="${i === 0 ? 'best' : ''} ${p.label === currentLabel ? 'current' : ''}">` +
-        `<td>${i + 1}</td><td>${p.label}${i === 0 ? ' ◀ הכי משתלם' : ''}${p.label === currentLabel ? ' ◀ המסלול הנוכחי' : ''}</td>` +
-        `<td>${nis(p.annual)}</td><td>${nis(p.saving)}</td></tr>`).join('');
-    $('currentPlanNote').innerHTML = current
-      ? (current === ranked[0]
-          ? `<p><b>המסלול הנוכחי שלך (${current.label}) הוא הזול ביותר - אין צורך להחליף.</b></p>`
-          : `<p><b>מעבר ל${ranked[0].label} חוסך ${nis(current.annual - ranked[0].annual)} לשנה מול המסלול הנוכחי (${current.label}).</b></p>`)
-      : '';
+    tbl.innerHTML = '';
+    const head = tbl.insertRow();
+    for (const t of ['#', 'מסלול', 'עלות שנתית', 'חיסכון מול תעריף אחיד']) {
+      const th = document.createElement('th'); th.textContent = t; head.appendChild(th);
+    }
+    ranked.forEach((p, i) => {
+      const row = tbl.insertRow();
+      if (i === 0) row.className = 'best';
+      if (p.label === currentLabel) row.className += ' current';
+      row.insertCell().textContent = String(i + 1);
+      row.insertCell().textContent =
+        p.label + (i === 0 ? ' ◀ הכי משתלם' : '') + (p.label === currentLabel ? ' ◀ המסלול הנוכחי' : '');
+      row.insertCell().textContent = nis(p.annual);
+      row.insertCell().textContent = nis(p.saving);
+    });
+    const note = $('currentPlanNote');
+    note.innerHTML = '';
+    if (current) {
+      const b = document.createElement('b');
+      b.textContent = current === ranked[0]
+        ? `המסלול הנוכחי שלך (${current.label}) הוא הזול ביותר - אין צורך להחליף.`
+        : `מעבר ל${ranked[0].label} חוסך ${nis(current.annual - ranked[0].annual)} לשנה מול המסלול הנוכחי (${current.label}).`;
+      const p = document.createElement('p'); p.appendChild(b); note.appendChild(p);
+    }
     $('plansNote').textContent = 'בתעו"ז התשלום הקבוע גבוה יותר. מסלולי שעות דורשים מונה חכם.';
 
     $('status').textContent = '';
