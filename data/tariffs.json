@@ -167,7 +167,9 @@
       "meter": "any",
       "eligibility": "לקוחות גז של אמישראגז בלבד",
       "source": "https://shtipser.com/plans/",
-      "verified": "2026-09-27"
+      "verified": "2026-09-27",
+      "requires_gas_customer": true,
+      "requires_hot_customer": false
     },
     {
       "supplier": "בזק energy",
@@ -187,7 +189,9 @@
       "meter": "any",
       "eligibility": "לקוחות HOT ו-NEXT",
       "source": "https://shtipser.com/plans/",
-      "verified": "2026-09-27"
+      "verified": "2026-09-27",
+      "requires_gas_customer": false,
+      "requires_hot_customer": true
     },
     {
       "supplier": "HOT energy",

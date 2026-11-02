@@ -23,10 +23,9 @@ class Customer:
 def plan_available(plan: SupplierPlan, customer: Customer) -> bool:
     if plan.meter == "smart" and not customer.smart_meter:
         return False
-    e = plan.eligibility
-    if "אמישראגז" in e and "גז" in e and not customer.gas_customer:
+    if plan.requires_gas_customer and not customer.gas_customer:
         return False
-    return "hot" not in e.lower() or customer.hot_customer
+    return not plan.requires_hot_customer or customer.hot_customer
 
 
 DEFAULT_CUSTOMER = Customer()

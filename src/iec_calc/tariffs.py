@@ -68,6 +68,8 @@ class SupplierPlan:
     window: Window | None  # None = all hours
     meter: str  # "any" or "smart"
     eligibility: str
+    requires_gas_customer: bool = False
+    requires_hot_customer: bool = False
     source: str
     verified: str
 
@@ -151,6 +153,8 @@ def load_catalog(path: str | Path | None = None) -> Catalog:
             window=Window.from_dict(sp["window"]) if sp.get("window") else None,
             meter=sp.get("meter", "any"),
             eligibility=sp.get("eligibility", ""),
+            requires_gas_customer=sp.get("requires_gas_customer", False),
+            requires_hot_customer=sp.get("requires_hot_customer", False),
             source=sp["source"],
             verified=sp["verified"],
         )
