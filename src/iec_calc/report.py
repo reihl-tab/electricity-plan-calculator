@@ -41,7 +41,12 @@ def format_weather(w: WeatherReport) -> str:
     )
 
 
-def format_ranking(costs: list[PlanCost], days: int, flat_rate: float) -> str:
+def format_ranking(
+    costs: list[PlanCost],
+    days: int,
+    flat_rate: float,
+    excluded: list | None = None,
+) -> str:
     lines = [
         'דירוג מסלולים (עלות שנתית משוערת: צריכה + תשלומים קבועים, כולל מע"מ)',
         "====================================================",
@@ -58,6 +63,9 @@ def format_ranking(costs: list[PlanCost], days: int, flat_rate: float) -> str:
         "העלויות כוללות את התשלומים הקבועים (כולל מע\"מ).",
         'בתעו"ז התשלום הקבוע גבוה יותר (47.63 ₪/חודש לפני מע"מ). מסלולי שעות דורשים מונה חכם.',
     ]
+    if excluded:
+        lines += ["", "לא נכללו בדירוג לפי דגלי הזכאות שהוגדרו:"]
+        lines += [f"  - {p.label} ({p.eligibility})" for p in excluded]
     return lines_to_text(lines)
 
 

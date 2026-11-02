@@ -7,6 +7,30 @@ from dataclasses import dataclass
 from .parser import Interval
 from .tariffs import Catalog, SupplierPlan
 
+
+@dataclass(frozen=True)
+class Customer:
+    """Eligibility facts that decide which supplier plans are on the table.
+
+    Defaults include every plan; CLI flags narrow them down.
+    """
+
+    smart_meter: bool = True
+    gas_customer: bool = True
+    hot_customer: bool = True
+
+
+def plan_available(plan: SupplierPlan, customer: Customer) -> bool:
+    if plan.meter == "smart" and not customer.smart_meter:
+        return False
+    e = plan.eligibility
+    if "אמישראגז" in e and "גז" in e and not customer.gas_customer:
+        return False
+    return "hot" not in e.lower() or customer.hot_customer
+
+
+DEFAULT_CUSTOMER = Customer()
+
 log = logging.getLogger(__name__)
 
 
@@ -39,16 +63,22 @@ def taoz_cost(intervals: list[Interval], catalog: Catalog) -> float:
     return sum(i.kwh * catalog.taoz.rate(i.start) for i in intervals)
 
 
+def unavailable_plans(catalog: Catalog, customer: Customer) -> list[SupplierPlan]:
+    return [p for p in catalog.plans if not plan_available(p, customer)]
+
+
 def rank_plans(
     intervals: list[Interval],
     catalog: Catalog,
     days: int,
     phase: str = "single",
+    customer: Customer = DEFAULT_CUSTOMER,
 ) -> list[PlanCost]:
     """Annual cost (energy + fixed fees, incl. VAT) per plan, cheapest first.
 
     Fixed fees are identical for the flat tariff and supplier plans; Taoz's
     fixed fee is higher (schedule 5.4-1), so it is included explicitly.
+    Plans failing the customer's eligibility flags are excluded.
     """
     iec_fixed = catalog.fixed_fee_annual(phase)
     taoz_fixed = catalog.fixed_fee_annual(phase, taoz=True)
@@ -81,6 +111,9 @@ def rank_plans(
         ),
     )
     for plan in catalog.plans:
+        if not plan_available(plan, customer):
+            log.debug("plan %s excluded by eligibility flags", plan.label)
+            continue
         c = supplier_cost(intervals, plan, catalog.flat_rate)
         out.append(
             PlanCost(

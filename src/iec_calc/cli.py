@@ -36,13 +36,23 @@ def build_arg_parser() -> argparse.ArgumentParser:
         sp.add_argument("--phase", choices=["single", "three"], default="single",
                         help="meter phase for fixed-fee calculation (default: single)")
 
+    def add_eligibility_args(sp):
+        sp.add_argument("--no-smart-meter", dest="smart_meter", action="store_false",
+                        help="exclude plans that require a smart meter")
+        sp.add_argument("--no-gas", dest="gas_customer", action="store_false",
+                        help="exclude gas-customer-only plans (Amisragas)")
+        sp.add_argument("--no-hot", dest="hot_customer", action="store_false",
+                        help="exclude HOT/NEXT-customer-only plans")
+
     p = sub.add_parser("plans", help="rank all electricity plans by annual cost on your data")
     add_file_arg(p)
     add_phase_arg(p)
+    add_eligibility_args(p)
 
     r = sub.add_parser("report", help="full report: analysis + plan ranking")
     add_file_arg(r)
     add_phase_arg(r)
+    add_eligibility_args(r)
     r.add_argument("--weather", action="store_true")
     r.add_argument("--lat", type=float, default=DEFAULT_LAT)
     r.add_argument("--lon", type=float, default=DEFAULT_LON)
@@ -86,8 +96,17 @@ def main(argv: list[str] | None = None) -> int:
             out.append(_weather_block(args, summary))
     if args.command in ("plans", "report"):
         catalog = tariffs.load_catalog(args.tariffs)
-        costs = cost.rank_plans(intervals, catalog, summary.days, phase=args.phase)
-        out.append(report.format_ranking(costs, summary.days, catalog.flat_rate))
+        customer = cost.Customer(
+            smart_meter=args.smart_meter,
+            gas_customer=args.gas_customer,
+            hot_customer=args.hot_customer,
+        )
+        log.debug("customer eligibility: %s", customer)
+        costs = cost.rank_plans(
+            intervals, catalog, summary.days, phase=args.phase, customer=customer
+        )
+        excluded = cost.unavailable_plans(catalog, customer)
+        out.append(report.format_ranking(costs, summary.days, catalog.flat_rate, excluded))
     print("\n\n".join(out))
     return 0
 
