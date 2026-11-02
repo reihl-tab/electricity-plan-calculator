@@ -22,7 +22,12 @@
   :root { --bg:#f7f7f9; --card:#fff; --ink:#1a1a2e; --accent:#0b6bcb; --muted:#666; }
   * { box-sizing: border-box; }
   body { font-family: system-ui, "Segoe UI", Arial, sans-serif; background:var(--bg); color:var(--ink); margin:0; }
-  header { background:var(--accent); color:#fff; padding:1rem 1.5rem; }
+  header { background:var(--accent); color:#fff; padding:1rem 1.5rem;
+           display:flex; align-items:center; justify-content:space-between; gap:1rem;
+           flex-direction:row-reverse; }
+  select { max-width:100%; box-sizing:border-box; }
+  header select#langSwitch { font:inherit; font-weight:600; color:var(--accent);
+           background:#fff; border:0; border-radius:6px; padding:.15rem .3rem; cursor:pointer; }
   header h1 { margin:0; font-size:1.3rem; }
   main { max-width:960px; margin:0 auto; padding:1rem; display:grid; gap:1rem; }
   .card { background:var(--card); border-radius:12px; padding:1rem 1.25rem; box-shadow:0 1px 4px rgba(0,0,0,.08); }
@@ -39,12 +44,13 @@
   canvas { width:100%; max-width:880px; }
   .err { background:#ffebee; border:1px solid #ef9a9a; border-radius:8px; padding:.6rem .9rem; display:none; }
   .opts { display:flex; flex-wrap:wrap; gap:1rem; }
+  .opts label { min-width:0; }
+  .opts select { width:100%; }
   h2 { font-size:1.05rem; margin:.2rem 0 .6rem; }
 </style>
 </head>
 <body>
-<nav id="langSwitch" aria-label="language"></nav>
-<header><h1 data-i18n="ui.header">מחשבון מסלולי חשמל - מה הכי משתלם לך?</h1></header>
+<header><select id="langSwitch"></select><h1 data-i18n="ui.header">מחשבון מסלולי חשמל - מה הכי משתלם לך?</h1></header>
 <main>
   <div class="card">
     <div class="privacy" data-i18n="ui.privacy">🔒 הקובץ לא נשלח לשום שרת. כל החישוב מתבצע בדפדפן שלך בלבד. מקור התעריפים: נתונים מפורסמים שאומתו מול חברת החשמל ואתרי השוואה (מצורף קישור במקור). הדף עצמו לא שולח שום בקשה לרשת; הקישור לקוד המקור למטה הוא קישור רגיל ושום דבר לא נטען ממנו עד שלוחצים עליו.</div>

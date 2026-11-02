@@ -220,6 +220,16 @@ function setBlock(ivs, startIdx, kws) {
   check('i18n: en translation renders', t('ui.title', {}, 'en') === 'Electricity plan calculator');
   check('i18n: og keys exist in both languages', ['he', 'en'].every(l => I18N.strings['ui.og_title'][l] && I18N.strings['ui.og_desc'][l]));
   check('i18n: unknown language falls back to he', t('ui.title', {}, 'fr') === t('ui.title', {}, 'he'));
+  // selector redesign (issue #54): a native select inside the header on every page,
+  // flex space-between puts it opposite the title in both directions
+  for (const page of ['index.html', 'guide.html', 'sources.html']) {
+    const body = readFileSync(join(root, 'web', page), 'utf-8');
+    check(`${page}: select#langSwitch inside header`, /<header><select id="langSwitch"><\/select><h1/.test(body));
+    check(`${page}: header flex opposite-side`, /header \{[^}]*display:flex[^}]*justify-content:space-between[^}]*flex-direction:row-reverse/s.test(body));
+    check(`${page}: no old nav bar`, !body.includes('<nav id="langSwitch"'));
+  }
+  check('i18n: selector aria-label key in all languages', ['he', 'en'].every(l => I18N.strings['ui.lang_switch_label'][l]));
+  check('i18n: option labels are 2-letter codes', Object.keys(I18N.languages).every(c => c.length === 2 && c.toUpperCase().length === 2));
 }
 
 // --- link hygiene (issue #45): repo/source links point at main, hosts are expected, internal links exist ---
@@ -247,5 +257,131 @@ for (const rel of pagesAndDocs) {
   }
 }
 check('links: no branch refs, expected hosts only, internal links resolve (issue #45)', linkFails === 0);
+
+
+// --- functional: full language switch after a calculation leaves no stale strings (#54 review) ---
+{
+  const allEls = new Set();
+  const mkEl = (tag = 'div') => {
+    const e = {
+      tag, children: [], textContent: '', value: '', style: {}, attrs: {}, listeners: {},
+      selectedIndex: 0, files: [], checked: false, disabled: false, width: 300, height: 150,
+      className: '', innerHTML: '', dataset: {},
+      appendChild(c) { this.children.push(c); c.parent = this; return c; },
+      append(...cs) { for (const c of cs) this.appendChild(typeof c === 'string' ? { textContent: c, children: [] } : c); },
+      replaceChildren(...cs) {
+        const detach = c => { c.detached = true; (c.children || []).forEach(detach); };
+        this.children.forEach(detach);
+        this.children = [...cs];
+        this.children.forEach(c => { c.parent = this; c.detached = false; });
+      },
+      setAttribute(k, v) { this.attrs[k] = String(v); },
+      getAttribute(k) { return this.attrs[k] ?? null; },
+      hasAttribute(k) { return k in this.attrs; },
+      addEventListener(ev, fn) { this.listeners[ev] = fn; },
+      dispatchEvent(ev) { this.listeners[ev.type]?.(ev); },
+      insertRow() { const r = mkEl('tr'); this.children.push(r); r.parent = this; return r; },
+      insertCell() { const c = mkEl('td'); this.children.push(c); c.parent = this; return c; },
+      querySelector(sel) {
+        const m = sel.match(/^option\[value="([^"]*)"\]$/);
+        return m ? this.children.find(c => c.value === m[1]) ?? null : null;
+      },
+      getContext() { return new Proxy({}, { get: (t, k) => () => {}, set: () => true }); },
+      get options() { return this.children; },
+    };
+    Object.defineProperty(e, 'innerHTML', {
+      get() { return this._innerHTML || ''; },
+      set(v) { this._innerHTML = v; if (v === '') this.replaceChildren(); },
+    });
+    const tc = Object.getOwnPropertyDescriptor(Object.getPrototypeOf(e), 'textContent');
+    allEls.add(e);
+    return e;
+  };
+  const byId = {};
+  const staticEls = [];
+  {
+    const html = readFileSync(join(root, 'web', 'index.html'), 'utf-8');
+    for (const m of html.match(/data-i18n(?:-alt|-title)?="[^"]+"/g) || []) {
+      const [attr, key] = m.split('="');
+      staticEls.push(Object.assign(mkEl('span'), { attrs: { [attr]: key.replace(/"$/, '') } }));
+    }
+  }
+  const docListeners = {};
+  const documentStub = {
+    title: '', documentElement: mkEl('html'),
+    getElementById(id) {
+      const tag = id === 'currentPlan' || id === 'langSwitch' || id === 'phase' ? 'select'
+        : id.startsWith('ch') ? 'canvas' : 'div';
+      return byId[id] ??= mkEl(tag);
+    },
+    createElement: tag => mkEl(tag),
+    createTextNode: txt => ({ textContent: txt, children: [] }),
+    querySelector: () => null,
+    querySelectorAll(sel) {
+      if (sel === '[data-i18n]') return staticEls.filter(e => 'data-i18n' in e.attrs);
+      if (sel === '[data-i18n-title]') return staticEls.filter(e => 'data-i18n-title' in e.attrs);
+      return [];
+    },
+    addEventListener(ev, fn) { docListeners[ev] = fn; },
+    dispatchEvent(ev) { docListeners[ev.type]?.(ev); },
+  };
+  class CustomEventStub { constructor(type) { this.type = type; } }
+  const windowStub = {
+    location: { search: '?lang=he', pathname: '/web/' },
+    history: { replaceState(s, t, u) { windowStub.location.search = u.includes('?') ? u.slice(u.indexOf('?')) : ''; } },
+    URLSearchParams, CustomEvent: CustomEventStub,
+  };
+  globalThis.document = documentStub;
+  globalThis.window = windowStub;
+  globalThis.location = windowStub.location;
+  globalThis.CustomEvent = CustomEventStub;
+
+  // placeholder option like the real markup
+  const planSel = documentStub.getElementById('currentPlan');
+  const ph = mkEl('option'); ph.value = ''; ph.textContent = '-';
+  planSel.appendChild(ph);
+  planSel.selectedIndex = 0;
+  documentStub.getElementById('phase').value = 'single';
+  documentStub.getElementById('csv').files = [{ text: async () => text }];
+  documentStub.getElementById('smartMeter').checked = true;
+
+  await import('../web/app.js');
+  const collect = () => {
+    const out = [];
+    const walk = e => { if (e.textContent) out.push(e.textContent); (e.children || []).forEach(walk); };
+    allEls.forEach(e => { if (!e.parent && !e.detached) walk(e); });
+    return out;
+  };
+
+  await byId.go.listeners.click();
+  let texts = collect().join('\n');
+  check('langswitch: he render has Hebrew plan label + column', texts.includes('חברת החשמל - תעריף אחיד מפוקח') && texts.includes('עלות שנתית'));
+
+  const switchTo = code => { byId.langSwitch.value = code; byId.langSwitch.listeners.change(); };
+  switchTo('en');
+  texts = collect().join('\n');
+  check('langswitch: url updated', windowStub.location.search === '?lang=en');
+  check('langswitch: en render has English plan label + column', texts.includes('Israel Electric Corp - regulated flat rate') && texts.includes('Annual cost'));
+  const staleHe = ['עלות שנתית', 'חברת החשמל - תעריף אחיד מפוקח', 'ימי מדידה', 'הכי משתלם', 'תובנות מהנתונים']
+    .filter(s => texts.includes(s));
+
+  check('langswitch: no stale Hebrew UI strings after switch', staleHe.length === 0);
+  check('langswitch: plan select repopulated in en', byId.currentPlan.children.some(o => o.value === 'Israel Electric Corp - regulated flat rate'));
+
+  switchTo('he');
+  texts = collect().join('\n');
+  check('langswitch: back to he, no stale English UI strings', !texts.includes('Annual cost') && texts.includes('עלות שנתית'));
+}
+
+// --- CSS contract: 360px no-overflow guards (#54 review) ---
+{
+  const idx = readFileSync(join(root, 'web', 'index.html'), 'utf-8');
+  check('css: .opts label may shrink (min-width:0)', /\.opts label \{[^}]*min-width:0/.test(idx));
+  check('css: .opts select fills its label (width:100%)', /\.opts select \{[^}]*width:100%/.test(idx));
+  for (const page of ['index.html', 'guide.html', 'sources.html']) {
+    const body = readFileSync(join(root, 'web', page), 'utf-8');
+    check(`css: ${page} global select max-width guard`, /select \{ max-width:100%/.test(body));
+  }
+}
 
 process.exit(failures ? 1 : 0);
