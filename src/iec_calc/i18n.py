@@ -1,0 +1,48 @@
+"""Translations loader - i18n/strings.json is the single source of truth.
+
+The CLI currently renders in the default language (Hebrew). A --lang flag
+arrives with the first additional language; the loader already accepts any
+language present in the file.
+"""
+from __future__ import annotations
+
+import json
+import re
+from functools import lru_cache
+from pathlib import Path
+
+STRINGS_PATH = Path(__file__).resolve().parent.parent.parent / "i18n" / "strings.json"
+_PLACEHOLDER = re.compile(r"\{(\w+)\}")
+
+
+@lru_cache(maxsize=1)
+def _doc() -> dict:
+    return json.loads(STRINGS_PATH.read_text(encoding="utf-8"))
+
+
+def default_lang() -> str:
+    for code, meta in _doc()["languages"].items():
+        if meta.get("default"):
+            return code
+    return next(iter(_doc()["languages"]))
+
+
+def languages() -> dict:
+    return _doc()["languages"]
+
+
+def t(key: str, lang: str | None = None, **params: object) -> str:
+    """Render a string key in lang (default: the file's default language).
+
+    Falls back to the default language for a missing translation, then to the
+    key itself. Unknown placeholders are left as-is, so a template mismatch
+    is visible rather than fatal.
+    """
+    entry = _doc()["strings"].get(key)
+    if entry is None:
+        return key
+    lang = lang or default_lang()
+    template = entry.get(lang) or entry.get(default_lang())
+    if template is None:
+        return key
+    return _PLACEHOLDER.sub(lambda m: str(params.get(m.group(1), m.group(0))), template)

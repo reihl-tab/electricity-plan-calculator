@@ -14,6 +14,7 @@ from datetime import date, datetime, time, timedelta
 
 from .analysis import FRI_SAT, Summary
 from .benchmarks import Benchmarks, load_benchmarks
+from .i18n import t as _t
 from .parser import Interval
 from .tariffs import Catalog
 
@@ -239,13 +240,12 @@ def detect_appliances(intervals: list[Interval], base_kw: float) -> tuple[Applia
             conf = "high" if max(exs) >= 1.5 and energy >= 0.6 else "medium"
             events.append(ApplianceEvent(
                 "washing_machine", conf, start, end, round(energy, 2),
-                f"בלוק {dur_min:.0f} דק' עם {max_consec_hi} רבעי-שעה רצופים ~{max(exs):.1f} קילוואט"
-                " (חימום מים) + פעילות מתונה (מנוע)",
+                _t("calc.pattern_washer", dur=f"{dur_min:.0f}", consec=max_consec_hi, max=f"{max(exs):.1f}"),
             ))
         elif OVEN_MIN_MIN <= dur_min <= OVEN_MAX_MIN and max(exs) >= 1.5 and transitions >= 3:
             events.append(ApplianceEvent(
                 "oven", "medium", start, end, round(energy, 2),
-                f"בלוק {dur_min:.0f} דק' עם {transitions} מעברי דלוק/כבוי (תרמוסטט) ושיא ~{max(exs):.1f} קילוואט",
+                _t("calc.pattern_oven", dur=f"{dur_min:.0f}", transitions=transitions, max=f"{max(exs):.1f}"),
             ))
         elif (
             SUSTAINED_MIN_MIN <= dur_min <= SUSTAINED_MAX_MIN
@@ -253,7 +253,7 @@ def detect_appliances(intervals: list[Interval], base_kw: float) -> tuple[Applia
         ):
             events.append(ApplianceEvent(
                 "sustained_high", "low", start, end, round(energy, 2),
-                f"עומס רציף ~{statistics.mean(exs):.1f} קילוואט למשך {dur_min:.0f} דק'",
+                _t("calc.pattern_sustained", mean=f"{statistics.mean(exs):.1f}", dur=f"{dur_min:.0f}"),
             ))
         else:
             log.debug("unclassified block at %s (%d intervals, %.2f kWh)", start, len(idxs), energy)
@@ -278,11 +278,11 @@ def detect_efficiency(
         notes.append(EfficiencyNote(
             kind="floor",
             confidence="low",
-            text=(
-                f"רצפת הצריכה {night_base_kw * 1000:.0f} וואט כוללת גם מכשירים שמחוברים תמיד. "
-                f"לקונטקסט בלבד: מקרר-מקפיא מודרני טיפוסי צורך כ-{benchmarks.fridge_typical_kwh_per_year:.0f} "
-                f'קוט"ש בשנה (כ-{fridge_w:.0f} וואט בממוצע). אם הרצפה גבוהה בהרבה מזה, '
-                "שווה לבדוק מה עוד מחובר קבוע - זו לא פסיקה על מכשיר מסוים"
+            text=_t(
+                "calc.eff_floor",
+                watts=f"{night_base_kw * 1000:.0f}",
+                kwh_year=f"{benchmarks.fridge_typical_kwh_per_year:.0f}",
+                fridge_w=f"{fridge_w:.0f}",
             ),
             annual_nis=night_base_kw * 24 * 365 * flat_rate,
         ))
@@ -298,12 +298,11 @@ def detect_efficiency(
             notes.append(EfficiencyNote(
                 kind="washer",
                 confidence="medium",
-                text=(
-                    f'מחזור כביסה ממוצע בבית: כ-{mean_cycle:.1f} קוט"ש (משוער מחתימת העומס, '
-                    f"{len(washers)} מחזורים). מכונה מודרנית: כ-{typical:.1f} "
-                    'קוט"ש למחזור (בקנה אחד עם ממוצע 2024 בישראל - 0.55 קוט"ש, ynet). ההבדל תלוי בתוכנית ובטמפרטורה '
-                    "(כביסה חמה או ארוכה צורכת הרבה יותר) - זו לא פסיקה על המכונה; "
-                    "אם המחזורים חמים או ארוכים, שווה לבדוק תוכנית eco"
+                text=_t(
+                    "calc.eff_washer",
+                    mean=f"{mean_cycle:.1f}",
+                    count=len(washers),
+                    typical=f"{typical:.1f}",
                 ),
                 annual_nis=diff_nis,
             ))
@@ -320,11 +319,8 @@ def detect_efficiency(
             notes.append(EfficiencyNote(
                 kind="sustained",
                 confidence="low",
-                text=(
-                    f"זוהו {len(sustained)} בלוקים של עומס גבוה ממושך. "
-                    f"אם מדובר במזגן: מחקרים מודדים חיסכון של {lo}-{hi}% במזגן אינוורטר "
-                    "לעומת מזגן on/off (טווח מחקרים, לא מדידה של הבית). "
-                    "מצריכת כל הבית אי אפשר להבחין בין מזגן, תנור חימום או דוד - זה קונטקסט בלבד"
+                text=_t(
+                    "calc.eff_sustained", count=len(sustained), lo=lo, hi=hi,
                 ),
             ))
 
@@ -335,10 +331,7 @@ def detect_efficiency(
         notes.append(EfficiencyNote(
             kind="unattended",
             confidence="medium",
-            text=(
-                f"{len(unattended)} בלוקי עומס גבוה התחילו בין חצות ל-05:00. "
-                "אם זה לא מתוכנן (למשל טיימר של דוד), אולי נשכח מכשיר דולק - שווה לבדוק"
-            ),
+            text=_t("calc.eff_unattended", count=len(unattended)),
             annual_nis=annual_kwh * flat_rate,
         ))
 

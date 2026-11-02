@@ -3,6 +3,7 @@ from __future__ import annotations
 
 from .analysis import Summary
 from .cost import PlanCost
+from .i18n import t as _t
 from .insights import InsightsReport
 from .tariffs import Catalog
 from .weather import HvacReport, WeatherReport
@@ -14,31 +15,31 @@ def _nis(v: float) -> str:
 
 def format_analysis(s: Summary) -> str:
     lines = [
-        "ניתוח צריכה",
+        _t("report.analysis_title"),
         "===========",
-        f'תקופה: {s.days} ימים | סה"כ {s.total_kwh:.1f} קוט"ש'
-        f" | ממוצע {s.avg_daily_kwh:.2f} קוט\"ש/יום",
-        f"הערכה שנתית: {s.annualized_kwh:,.0f} קוט\"ש",
-        f"רצפת צריכה (בסיס, 02:00-05:00): {s.base_load_kw * 1000:.0f} וואט",
-        f"שיא: {s.peak_interval_kw:.2f} קילוואט ({s.peak_interval_at})",
-        f"לילה (23:00-07:00): {s.night_share:.1%} | שישי-שבת: {s.fri_sat_share:.1%}",
-        f"ממוצע יום חול: {s.weekday_avg:.2f} | ממוצע שישי-שבת: {s.fri_sat_avg:.2f} קוט\"ש",
+        _t("report.period", days=s.days, total=f"{s.total_kwh:.1f}", avg=f"{s.avg_daily_kwh:.2f}"),
+        _t("report.annual_est", kwh=f"{s.annualized_kwh:,.0f}"),
+        _t("report.base_line", watts=f"{s.base_load_kw * 1000:.0f}"),
+        _t("report.peak_line", kw=f"{s.peak_interval_kw:.2f}", at=s.peak_interval_at),
+        _t("report.night_weekend", night=f"{s.night_share:.1%}", weekend=f"{s.fri_sat_share:.1%}"),
+        _t("report.weekday_avg", weekday=f"{s.weekday_avg:.2f}", weekend=f"{s.fri_sat_avg:.2f}"),
     ]
     if s.anomaly_days:
-        lines.append("ימים חריגים (מעל ממוצע + 2 סטיות תקן): " + ", ".join(str(d) for d in s.anomaly_days))
+        lines.append(_t("report.anomaly_days", days=", ".join(str(d) for d in s.anomaly_days)))
     return "\n".join(lines)
 
 
 def format_weather(w: WeatherReport) -> str:
     return "\n".join(
         [
-            "רגישות למזג אוויר (אומדן ניסיוני, לא חלק מהמלצת המסלול)",
+            _t("report.weather_title"),
             "=================",
-            f"מתאם צריכה-טמפ' (יומי): r={w.correlation:.2f} "
-            f"(טווח {w.temp_min:.0f}-{w.temp_max:.0f} מעלות, {w.days} ימים)",
-            f"רגישות (אחרי נטרול סופ\"ש): {w.kwh_per_degree:+.2f} קוט\"ש/יום למעלה | "
-            f"סופ\"ש: {w.weekend_extra_kwh:+.2f} קוט\"ש/יום",
-            f"הסבר המודל: R²={w.r_squared:.2f}",
+            _t(
+                "report.weather_corr", r=f"{w.correlation:.2f}",
+                tmin=f"{w.temp_min:.0f}", tmax=f"{w.temp_max:.0f}", days=w.days,
+            ),
+            _t("report.weather_sens", sens=f"{w.kwh_per_degree:+.2f}", wknd=f"{w.weekend_extra_kwh:+.2f}"),
+            _t("report.model_r2", r2=f"{w.r_squared:.2f}"),
         ]
     )
 
@@ -51,7 +52,7 @@ def format_ranking(
     current_label: str | None = None,
 ) -> str:
     lines = [
-        'דירוג מסלולים (עלות שנתית משוערת: צריכה + תשלומים קבועים, כולל מע"מ)',
+        _t("report.ranking_title"),
         "====================================================",
     ]
     current = None
@@ -60,10 +61,10 @@ def format_ranking(
             (c for c in costs if current_label in c.label), None
         )
     for i, c in enumerate(costs, 1):
-        marker = "  <<< הכי משתלם" if i == 1 else ""
+        marker = _t("report.best_marker") if i == 1 else ""
         if current is not None and c.label == current.label:
             marker = (
-                "  <<< הכי משתלם (המסלול הנוכחי שלך)" if i == 1 else "  <<< המסלול הנוכחי"
+                _t("report.best_current_marker") if i == 1 else _t("report.current_marker")
             )
         lines.append(
             f"{i:2d}. {c.label:<48} {_nis(c.annual_cost):>9} | "
@@ -71,29 +72,29 @@ def format_ranking(
         )
     lines += [
         "",
-        f"בסיס ההשוואה: תעריף אחיד {catalog.flat_rate:.4f} ₪/קוט\"ש כולל מע\"מ; {days} ימי מדידה, הוכפל לשנה.",
-        "העלויות כוללות את התשלומים הקבועים (כולל מע\"מ).",
-        f'בתעו"ז התשלום הקבוע גבוה יותר ({catalog.taoz.fixed_fee_monthly_pre_vat:.2f} ₪/חודש לפני מע"מ).',
-        "מסלולי שעות דורשים מונה חכם.",
+        _t("report.compare_base", rate=f"{catalog.flat_rate:.4f}", days=days),
+        _t("report.costs_include_fixed"),
+        _t("report.taoz_fixed_higher", fee=f"{catalog.taoz.fixed_fee_monthly_pre_vat:.2f}"),
+        _t("report.smart_meter_required"),
     ]
     if current is not None:
         best = costs[0]
         delta = current.annual_cost - best.annual_cost
         lines += [
             "",
-            f"המסלול הנוכחי: {current.label} ({_nis(current.annual_cost)} לשנה).",
+            _t("report.current_plan_line", label=current.label, cost=_nis(current.annual_cost)),
         ]
         if current.label == best.label:
-            lines.append("המסלול הנוכחי שלך הוא הזול ביותר - אין צורך להחליף.")
+            lines.append(_t("report.current_is_best"))
         else:
-            lines.append(f"מעבר ל{best.label} חוסך {_nis(delta)} לשנה מול המסלול הנוכחי.")
+            lines.append(_t("report.switch_saves", best=best.label, amount=_nis(delta)))
     elif current_label:
         lines += [
             "",
-            f"שים לב: המסלול הנוכחי ('{current_label}') לא נכלל בדירוג עקב דגלי הזכאות שהוגדרו.",
+            _t("report.current_excluded", label=current_label),
         ]
     if excluded:
-        lines += ["", "לא נכללו בדירוג לפי דגלי הזכאות שהוגדרו:"]
+        lines += ["", _t("report.excluded_header")]
         lines += [f"  - {p.label} ({p.eligibility})" for p in excluded]
     return lines_to_text(lines)
 
@@ -104,20 +105,20 @@ def lines_to_text(lines: list[str]) -> str:
 
 def format_hvac(h: HvacReport) -> str:
     lines = [
-        "פיצול קירור/חימום (אומדן ניסיוני, לא חלק מהמלצת המסלול)",
+        _t("report.hvac_title"),
         "=============================",
         (
-            f"קירור: {h.kwh_per_cooling_degree:+.2f} קוט\"ש/יום לכל מעלה מעל {h.cooling_base:.0f}°"
+            _t("report.hvac_cooling", v=f"{h.kwh_per_cooling_degree:+.2f}", base=f"{h.cooling_base:.0f}")
             if h.kwh_per_cooling_degree is not None
-            else "קירור: אין מספיק שונות בטמפרטורה למדידה"
+            else _t("report.hvac_cooling_na")
         ) + " | " + (
-            f"חימום: {h.kwh_per_heating_degree:+.2f} קוט\"ש/יום לכל מעלה מתחת {h.heating_base:.0f}°"
+            _t("report.hvac_heating", v=f"{h.kwh_per_heating_degree:+.2f}", base=f"{h.heating_base:.0f}")
             if h.kwh_per_heating_degree is not None
-            else "חימום: אין מספיק שונות בטמפרטורה למדידה"
+            else _t("report.hvac_heating_na")
         ),
-        f"הסבר המודל: R²={h.r_squared:.2f} ({h.days} ימים)",
+        _t("report.hvac_r2", r2=f"{h.r_squared:.2f}", days=h.days),
         "",
-        "חודש     " + '  סה"כ' + "   בסיס" + '  סופ"ש' + "   קירור" + "   חימום" + "    שאר",
+        _t("report.hvac_table_head"),
     ]
     for m in h.monthly:
         cells = [m.total_kwh, m.base_kwh, m.weekend_kwh, m.cooling_kwh, m.heating_kwh, m.residual_kwh]
@@ -128,101 +129,88 @@ def format_hvac(h: HvacReport) -> str:
         )
     return lines_to_text(lines)
 
-_KIND_LABELS = {
-    "washing_machine": "מכונת כביסה אפשרית",
-    "oven": "תנור אפייה אפשרי",
-    "sustained_high": "עומס גבוה ממושך (ייתכן מזגן/חימום/דוד - לא ניתן להבחין מהצריכה בלבד)",
+_KIND_KEYS = {
+    "washing_machine": "app.kind_washing_machine",
+    "oven": "app.kind_oven",
+    "sustained_high": "app.kind_sustained_high",
 }
-_CONF_LABELS = {"high": "ביטחון גבוה", "medium": "ביטחון בינוני", "low": "ביטחון נמוך"}
-_HE_DAY = ["שני", "שלישי", "רביעי", "חמישי", "שישי", "שבת", "ראשון"]
+_CONF_KEYS = {"high": "app.confidence_high", "medium": "app.confidence_medium", "low": "app.confidence_low"}
 
 
 def format_insights(rep: InsightsReport, flat_rate: float) -> str:
     """Observations only - every line is descriptive of the file, never causal."""
     lines = [
-        "תובנות מהנתונים (תצפיות על הקובץ בלבד)",
+        _t("report.insights_title"),
         "=========================================",
     ]
     span = f"{rep.first:%d.%m.%Y} - {rep.last:%d.%m.%Y}"
     if not rep.covers_full_year:
-        lines.append(
-            f"כיסוי: {rep.days} ימים ({span}). השוואה עונתית (חורף/קיץ) דורשת ייצוא של שנה "
-            "מלאה; אין להסיק מהקובץ על עונות שאינן בו."
-        )
+        lines.append(_t("report.coverage_partial", days=rep.days, span=span))
     else:
-        lines.append(f"כיסוי: {rep.days} ימים ({span}) - שנה מלאה.")
+        lines.append(_t("report.coverage_full", days=rep.days, span=span))
     hours = ", ".join(f"{h:02d}:00 ({v:.2f})" for h, v in rep.peak_hours)
-    lines.append(f"שעות שיא ממוצעות: {hours} קוט\"ש")
-    lines.append(
-        f"ממוצע יום חול: {rep.weekday_avg:.2f} | ממוצע שישי-שבת: {rep.weekend_avg:.2f} קוט\"ש"
-    )
+    lines.append(_t("report.peak_hours_line", hours=hours))
+    lines.append(_t("report.weekday_avg", weekday=f"{rep.weekday_avg:.2f}", weekend=f"{rep.weekend_avg:.2f}"))
     base_annual_nis = rep.night_base_kw * 24 * 365 * flat_rate
     lines.append(
-        f"רצפת צריכה (בסיס): {rep.night_base_kw * 1000:.0f} וואט"
-        f" (כ-{base_annual_nis:,.0f} ₪ לשנה אם קבוע) - מקרר שעובד תמיד "
-        "ועוד מכשירים מחוברים שכל אחד צורך מעט; יחד הם יוצרים את הרצפה"
+        _t("report.base_floor_line", watts=f"{rep.night_base_kw * 1000:.0f}", nis=f"{base_annual_nis:,.0f}")
     )
     if rep.shabbat_count:
         lines.append(
-            f'שבת (שקיעת ו\' עד צאת השבת, {rep.shabbat_count} שבתות): ממוצע {rep.shabbat_avg_kwh:.1f} קוט"ש '
-            f"לשבת; צריכת לילה {rep.shabbat_night_base_kw * 1000:.0f} וואט מול "
-            f"{rep.night_base_kw * 1000:.0f} בחול - עומס קבוע (למשל פלטה/מיחם) הוא הסבר אפשרי, לא ודאי"
+            _t("app.shabbat_line", count=rep.shabbat_count, avg=f"{rep.shabbat_avg_kwh:.1f}",
+               shabbat=f"{rep.shabbat_night_base_kw * 1000:.0f}", base=f"{rep.night_base_kw * 1000:.0f}")
         )
     ob = rep.observance
     if ob is not None:
         pct = round((ob.base_ratio - 1) * 100)
-        base_txt = (
-            f"צריכת ליל שבת גבוהה ב-{pct}% מליל חול"
-        )
-        appl_txt = (
-            f"{ob.shabbat_starts} הפעלות מכשירים ב-{ob.shabbat_count} שבתות "
-            f"(מול {ob.weekday_rate:.1f} ליום חול בממוצע)"
-        )
+        base_txt = _t("app.obs_base", pct=pct)
+        appl_txt = _t("app.obs_appl", starts=ob.shabbat_starts, count=ob.shabbat_count,
+                      rate=f"{ob.weekday_rate:.1f}")
         if ob.confidence == "high":
-            detail = base_txt + " ו" + appl_txt
+            detail = base_txt + _t("app.obs_join") + appl_txt
         elif "base" in ob.signals:
-            detail = base_txt + " - עומס קבוע כמו פלטה/מיחם הוא הסבר אפשרי"
+            detail = base_txt + _t("app.obs_base_note")
         else:
             detail = appl_txt
-        level = "גבוה" if ob.confidence == "high" else "בינוני"
-        lead = "נראה" if ob.confidence == "high" else "ייתכן"
-        lines.append(
-            f"{lead} שבמשק הבית שומרים שבת (ביטחון {level}): {detail}. "
-            "תצפית סטטיסטית מהקובץ בלבד, לא ודאות"
-        )
+        level = _t("app.level_high") if ob.confidence == "high" else _t("app.level_medium")
+        lead = _t("app.obs_lead_high") if ob.confidence == "high" else _t("app.obs_lead_medium")
+        lines.append(_t("app.obs_line", lead=lead, level=level, detail=detail))
     if rep.notable_days:
         days = ", ".join(f"{d:%d.%m}" for d in rep.notable_days)
-        lines.append(f"ימים עם צריכה חריגה: {days}")
+        lines.append(_t("app.notable_days", days=days))
     lines.append(
-        f'חלון השיא של תעו"ז: {rep.taoz_peak_kwh:.0f} קוט"ש '
-        f"({rep.taoz_peak_cost_share:.0%} מהעלות אם היית בתעו\"ז)"
+        _t("app.taoz_peak", kwh=f"{rep.taoz_peak_kwh:.0f}", pct=f"{rep.taoz_peak_cost_share * 100:.0f}")
     )
     if rep.appliances:
         lines.append("")
-        lines.append("זיהוי מכשירים (הערכה הסתברותית מחתימת העומס בלבד, לא ודאות):")
+        lines.append(_t("app.appliances_header"))
         by_kind: dict[str, list] = {}
         for a in rep.appliances:
             by_kind.setdefault(a.kind, []).append(a)
-        for kind, label in _KIND_LABELS.items():
+        for kind, key in _KIND_KEYS.items():
             events = by_kind.get(kind)
             if not events:
                 continue
             confs = {}
             for e in events:
                 confs[e.confidence] = confs.get(e.confidence, 0) + 1
-            conf_txt = ", ".join(f"{n} ב{_CONF_LABELS[c]}" for c, n in sorted(confs.items()))
-            lines.append(f"- {label}: {len(events)} אירועים ({conf_txt}).")
+            conf_txt = ", ".join(
+                _t("app.appliance_conf_part", n=n, conf=_t(_CONF_KEYS[c])) for c, n in sorted(confs.items())
+            )
+            lines.append("- " + _t("app.appliance_line", label=_t(key), count=len(events), confs=conf_txt))
             for e in sorted(events, key=lambda x: x.excess_kwh, reverse=True)[:2]:
+                day_name = _t(f"app.day_{(e.start.weekday() + 1) % 7}")
                 lines.append(
-                    f"  למשל יום {_HE_DAY[e.start.weekday()]} {e.start:%d.%m %H:%M}-{e.end:%H:%M}"
-                    f" ({e.excess_kwh:.1f} קוט\"ש, {_CONF_LABELS[e.confidence]}): {e.pattern}"
+                    "  " + _t("app.appliance_example", day=day_name,
+                              date=f"{e.start:%d.%m}", start=f"{e.start:%H:%M}", end=f"{e.end:%H:%M}",
+                              kwh=f"{e.excess_kwh:.1f}", conf=_t(_CONF_KEYS[e.confidence]), pattern=e.pattern)
                 )
     if rep.efficiency:
         lines.append("")
-        lines.append("יעילות מכשירים (השוואה לטיפוסי מודרני, בלי פסיקה על מכשיר):")
+        lines.append(_t("app.eff_header"))
         for n in rep.efficiency:
-            cost = f" הערכת הפרש/עלות שנתית: ~{n.annual_nis:,.0f} ₪." if n.annual_nis is not None else ""
-            lines.append(f"- {n.text} ({_CONF_LABELS[n.confidence]}).{cost}")
-        lines.append("מקורות ההשוואה: ראו data/benchmarks.json (אומתו ב-2026-11-02)")
+            cost = _t("app.eff_annual", nis=f"{n.annual_nis:,.0f}") if n.annual_nis is not None else ""
+            lines.append(f"- {n.text} ({_t(_CONF_KEYS[n.confidence])}).{cost}")
+        lines.append(_t("report.eff_sources"))
     return lines_to_text(lines)
 

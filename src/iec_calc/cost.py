@@ -4,6 +4,7 @@ from __future__ import annotations
 import logging
 from dataclasses import dataclass
 
+from .i18n import t as _t
 from .parser import Interval
 from .tariffs import Catalog, SupplierPlan
 
@@ -32,8 +33,8 @@ DEFAULT_CUSTOMER = Customer()
 
 log = logging.getLogger(__name__)
 
-FLAT_LABEL = 'חברת החשמל - תעריף אחיד מפוקח'
-TAOZ_LABEL = 'תעו"ז מפוקח (מונה חכם)'
+FLAT_LABEL = _t("plan.flat_label")
+TAOZ_LABEL = _t("plan.taoz_label")
 
 
 @dataclass(frozen=True)

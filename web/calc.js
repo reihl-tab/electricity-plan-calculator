@@ -1,5 +1,6 @@
 // Pure calculation core - no DOM, testable in node. Mirrors src/iec_calc/*.
 import { TARIFFS, BENCHMARKS } from './tariffs-data.js';
+import { t } from './i18n.js';
 
 const FRI_SAT = new Set([5, 6]); // JS getDay(): 5=Fri, 6=Sat
 
@@ -23,7 +24,7 @@ export function parseCsv(text) {
       intervals.push({ start, kwh, feed });
     }
   }
-  if (!intervals.length) throw new Error('לא נמצאו שורות צריכה בקובץ. ודאו שזה ייצוא צריכה של חברת החשמל.');
+  if (!intervals.length) throw new Error(t('calc.err_no_rows'));
   return intervals;
 }
 
@@ -96,10 +97,10 @@ export function rankPlans(intervals, opts = {}) {
   const out = [];
   const flatEnergy = intervals.reduce((s, i) => s + i.kwh * flat, 0);
   const flatAnnual = ann(flatEnergy) + iecFixed;
-  out.push({ label: 'חברת החשמל - תעריף אחיד מפוקח', kind: 'flat', annual: flatAnnual, saving: 0 });
+  out.push({ label: t('plan.flat_label'), kind: 'flat', annual: flatAnnual, saving: 0 });
   const taozEnergy = intervals.reduce((s, i) => s + i.kwh * taozRate(i.start, TARIFFS.taoz), 0);
   const taozAnnual = ann(taozEnergy) + taozFixed;
-  out.push({ label: 'תעו"ז מפוקח (מונה חכם)', kind: 'taoz', annual: taozAnnual, saving: flatAnnual - taozAnnual });
+  out.push({ label: t('plan.taoz_label'), kind: 'taoz', annual: taozAnnual, saving: flatAnnual - taozAnnual });
   for (const p of TARIFFS.supplier_plans) {
     if (p.meter === 'smart' && opts.smartMeter === false) continue;
     if (p.requires_gas_customer && opts.gasCustomer !== true) continue;
@@ -162,13 +163,13 @@ export function detectAppliances(intervals, baseKw) {
         exs.filter(e => e > MIN_EXCESS_KW && e < HIGH_KW).length >= 3 && energy >= 0.4 && energy <= 2.5) {
       events.push({ kind: 'washing_machine', confidence: maxEx >= 1.5 && energy >= 0.6 ? 'high' : 'medium',
         start, end, excessKwh: Math.round(energy * 100) / 100,
-        pattern: `בלוק ${Math.round(durMin)} דק' עם ${maxConsecHi} רבעי-שעה רצופים ~${maxEx.toFixed(1)} קילוואט (חימום מים) + פעילות מתונה (מנוע)` });
+        pattern: t('calc.pattern_washer', { dur: Math.round(durMin), consec: maxConsecHi, max: maxEx.toFixed(1) }) });
     } else if (durMin >= OVEN_MIN && durMin <= OVEN_MAX && maxEx >= 1.5 && transitions >= 3) {
       events.push({ kind: 'oven', confidence: 'medium', start, end, excessKwh: Math.round(energy * 100) / 100,
-        pattern: `בלוק ${Math.round(durMin)} דק' עם ${transitions} מעברי דלוק/כבוי (תרמוסטט) ושיא ~${maxEx.toFixed(1)} קילוואט` });
+        pattern: t('calc.pattern_oven', { dur: Math.round(durMin), transitions, max: maxEx.toFixed(1) }) });
     } else if (durMin >= SUST_MIN && durMin <= SUST_MAX && meanEx >= SUST_MIN_MEAN) {
       events.push({ kind: 'sustained_high', confidence: 'low', start, end, excessKwh: Math.round(energy * 100) / 100,
-        pattern: `עומס רציף ~${meanEx.toFixed(1)} קילוואט למשך ${Math.round(durMin)} דק'` });
+        pattern: t('calc.pattern_sustained', { mean: meanEx.toFixed(1), dur: Math.round(durMin) }) });
     }
   }
   return events;
@@ -243,7 +244,7 @@ export function detectEfficiency({ appliances, nightBaseKw, flatRate, days }) {
   if (nightBaseKw >= FLOOR_NOTE_KW) {
     const fridgeW = BENCHMARKS.fridge.typical_modern_kwh_per_year * 1000 / (24 * 365);
     notes.push({ kind: 'floor', confidence: 'low',
-      text: `רצפת הצריכה ${Math.round(nightBaseKw * 1000)} וואט כוללת גם מכשירים שמחוברים תמיד. לקונטקסט בלבד: מקרר-מקפיא מודרני טיפוסי צורך כ-${Math.round(BENCHMARKS.fridge.typical_modern_kwh_per_year)} קוט"ש בשנה (כ-${Math.round(fridgeW)} וואט בממוצע). אם הרצפה גבוהה בהרבה מזה, שווה לבדוק מה עוד מחובר קבוע - זו לא פסיקה על מכשיר מסוים`,
+      text: t('calc.eff_floor', { watts: Math.round(nightBaseKw * 1000), kwh_year: Math.round(BENCHMARKS.fridge.typical_modern_kwh_per_year), fridge_w: Math.round(fridgeW) }),
       annualNis: nightBaseKw * 24 * 365 * flatRate });
   }
   const washers = appliances.filter(a => a.kind === 'washing_machine' && (a.confidence === 'high' || a.confidence === 'medium'));
@@ -253,7 +254,7 @@ export function detectEfficiency({ appliances, nightBaseKw, flatRate, days }) {
     if (meanCycle > typical * WASHER_NOTE_RATIO) {
       const diffNis = (meanCycle - typical) * (washers.length / days * 365) * flatRate;
       notes.push({ kind: 'washer', confidence: 'medium',
-        text: `מחזור כביסה ממוצע בבית: כ-${meanCycle.toFixed(1)} קוט"ש (משוער מחתימת העומס, ${washers.length} מחזורים). מכונה מודרנית: כ-${typical.toFixed(1)} קוט"ש למחזור (בקנה אחד עם ממוצע 2024 בישראל - 0.55 קוט"ש, ynet). ההבדל תלוי בתוכנית ובטמפרטורה (כביסה חמה או ארוכה צורכת הרבה יותר) - זו לא פסיקה על המכונה; אם המחזורים חמים או ארוכים, שווה לבדוק תוכנית eco`,
+        text: t('calc.eff_washer', { mean: meanCycle.toFixed(1), count: washers.length, typical: typical.toFixed(1) }),
         annualNis: diffNis });
     }
   }
@@ -264,7 +265,7 @@ export function detectEfficiency({ appliances, nightBaseKw, flatRate, days }) {
       const lo = Math.round(BENCHMARKS.ac.inverter_savings_min * 100);
       const hi = Math.round(BENCHMARKS.ac.inverter_savings_max * 100);
       notes.push({ kind: 'sustained', confidence: 'low',
-        text: `זוהו ${sustained.length} בלוקים של עומס גבוה ממושך. אם מדובר במזגן: מחקרים מודדים חיסכון של ${lo}-${hi}% במזגן אינוורטר לעומת מזגן on/off (טווח מחקרים, לא מדידה של הבית). מצריכת כל הבית אי אפשר להבחין בין מזגן, תנור חימום או דוד - זה קונטקסט בלבד`,
+        text: t('calc.eff_sustained', { count: sustained.length, lo, hi }),
         annualNis: null });
     }
   }
@@ -272,7 +273,7 @@ export function detectEfficiency({ appliances, nightBaseKw, flatRate, days }) {
   if (unattended.length) {
     const annualKwh = unattended.reduce((s, a) => s + a.excessKwh, 0) / days * 365;
     notes.push({ kind: 'unattended', confidence: 'medium',
-      text: `${unattended.length} בלוקי עומס גבוה התחילו בין חצות ל-05:00. אם זה לא מתוכנן (למשל טיימר של דוד), אולי נשכח מכשיר דולק - שווה לבדוק`,
+      text: t('calc.eff_unattended', { count: unattended.length }),
       annualNis: annualKwh * flatRate });
   }
   return notes;

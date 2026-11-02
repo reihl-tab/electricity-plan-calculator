@@ -38,6 +38,22 @@ household's **actual** interval-level usage, with annual NIS cost estimates.
   plan first.
 - `iec_calc.cli` — argparse CLI: `analyze`, `plans`, `report`; `--debug`.
 
+## i18n (translations)
+
+- `i18n/strings.json` is the single source of truth for every user-visible
+  string: `key -> { <lang>: text }`, plus a `languages` map with name/dir/default.
+- Python (`src/iec_calc/i18n.py`) and JS (`web/i18n.js`, bundled as
+  `web/i18n-data.js` by `scripts/gen_web_data.py`) read the same file - no
+  duplicated strings, no network.
+- Adding a language = adding an entry under every key plus the `languages`
+  map. Tests fail if any key is missing a language or placeholders differ.
+- Web: Hebrew stays inline in the HTML (no-JS fallback); `web/i18n.js` swaps
+  `[data-i18n]` text by the `?lang=` URL parameter (shareable, no cookies)
+  and sets `<html lang dir>`. The selector is link-based at the top of every
+  page. og/meta tags stay Hebrew for now.
+- The CLI renders in the default language; a `--lang` flag arrives with the
+  first additional language.
+
 ## Logging
 Python `logging` to stderr. Default level WARNING (silent on success).
 `--debug` sets DEBUG: parsed record counts, date range, per-plan intermediate
