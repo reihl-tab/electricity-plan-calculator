@@ -95,7 +95,7 @@ def _weather_block(args, summary) -> str:
     blocks.append(
         report.format_weather(w)
         if w is not None
-        else "רגישות למזג אוויר: לא נמצאו מספיק ימים חופפים."
+        else i18n.t("report.weather_no_overlap")
     )
     if hvac is not None:
         blocks.append(report.format_hvac(hvac))

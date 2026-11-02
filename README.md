@@ -89,7 +89,8 @@ All user-visible strings live in one file: `i18n/strings.json`
 (`key -> { he, ... }`). Python and the web page read the same file (the web
 bundle `web/i18n-data.js` is generated - run `scripts/gen_web_data.py` after
 editing). Available languages: Hebrew (default) and
-English. Adding a language means adding its entry under every key and in the
+English. IEC supplier plan names stay in their original Hebrew form in every
+language - they are proper nouns from the tariff catalog, not UI text. Adding a language means adding its entry under every key and in the
 `languages` map; tests enforce completeness and matching placeholders. The
 site switches language with a `?lang=` URL parameter (no cookies, no network);
 Hebrew is the default. The cautious/probabilistic phrasing of the insight
