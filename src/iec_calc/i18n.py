@@ -31,6 +31,15 @@ def languages() -> dict:
     return _doc()["languages"]
 
 
+_active_lang: str | None = None
+
+
+def set_active_language(lang: str) -> None:
+    """Set the process-wide language used by t() when lang is None (CLI --lang)."""
+    global _active_lang
+    _active_lang = lang if lang in languages() else None
+
+
 def t(key: str, lang: str | None = None, **params: object) -> str:
     """Render a string key in lang (default: the file's default language).
 
@@ -41,7 +50,7 @@ def t(key: str, lang: str | None = None, **params: object) -> str:
     entry = _doc()["strings"].get(key)
     if entry is None:
         return key
-    lang = lang or default_lang()
+    lang = lang or _active_lang or default_lang()
     template = entry.get(lang) or entry.get(default_lang())
     if template is None:
         return key

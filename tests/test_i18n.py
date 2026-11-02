@@ -35,3 +35,42 @@ def test_t_substitutes_and_falls_back():
     assert i18n.t("no.such.key") == "no.such.key"
     # unknown placeholder stays visible rather than raising
     assert "{days}" in i18n.t("app.days_measured")
+
+
+def test_t_explicit_language():
+    assert i18n.t("ui.title", lang="en") == "Electricity plan calculator"
+    assert i18n.t("ui.title", lang="he") == "מחשבון מסלולי חשמל"
+
+
+def test_set_active_language():
+    try:
+        i18n.set_active_language("en")
+        assert i18n.t("ui.title") == "Electricity plan calculator"
+        i18n.set_active_language("xx")  # unknown: back to default
+        assert i18n.t("ui.title") == "מחשבון מסלולי חשמל"
+    finally:
+        i18n.set_active_language("he")
+        assert i18n.t("ui.title") == "מחשבון מסלולי חשמל"
+
+
+def test_cli_report_lang_en():
+    import os
+    import subprocess
+    import sys
+
+    root = Path(__file__).resolve().parent.parent
+    env = {**os.environ, "PYTHONPATH": str(root / "src")}
+    base = subprocess.run(
+        [sys.executable, "-m", "iec_calc.cli", "report", "data/sample_consumption.csv"],
+        capture_output=True, text=True, cwd=root, env=env,
+    )
+    en = subprocess.run(
+        [sys.executable, "-m", "iec_calc.cli", "--lang", "en", "report", "data/sample_consumption.csv"],
+        capture_output=True, text=True, cwd=root, env=env,
+    )
+    assert base.returncode == 0 and en.returncode == 0
+    assert "Consumption analysis" in en.stdout and "ניתוח צריכה" not in en.stdout
+    assert "ניתוח צריכה" in base.stdout
+    # cautious phrasing survives translation
+    assert "not a certainty" in en.stdout
+    assert "not a verdict" in en.stdout and "possible explanation" in en.stdout

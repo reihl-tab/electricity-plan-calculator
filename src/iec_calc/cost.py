@@ -33,8 +33,18 @@ DEFAULT_CUSTOMER = Customer()
 
 log = logging.getLogger(__name__)
 
-FLAT_LABEL = _t("plan.flat_label")
-TAOZ_LABEL = _t("plan.taoz_label")
+def flat_label() -> str:
+    return _t("plan.flat_label")
+
+
+def taoz_label() -> str:
+    return _t("plan.taoz_label")
+
+
+# Backwards-compatible aliases (default language at import time). Prefer the
+# functions in new code so CLI --lang is honored.
+FLAT_LABEL = flat_label()
+TAOZ_LABEL = taoz_label()
 
 
 @dataclass(frozen=True)
@@ -90,7 +100,7 @@ def rank_plans(
     flat_annual = _annualize(base, days) + iec_fixed
     out = [
         PlanCost(
-            label=FLAT_LABEL,
+            label=flat_label(),
             kind="flat",
             period_cost=base,
             annual_cost=flat_annual,
@@ -102,7 +112,7 @@ def rank_plans(
     taoz_annual = _annualize(tc, days) + taoz_fixed
     out.append(
         PlanCost(
-            label=TAOZ_LABEL,
+            label=taoz_label(),
             kind="taoz",
             period_cost=tc,
             annual_cost=taoz_annual,
