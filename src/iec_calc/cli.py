@@ -1,0 +1,90 @@
+"""Command line interface: iec-calc analyze|plans|report EXPORT.csv [--weather]."""
+from __future__ import annotations
+
+import argparse
+import logging
+import sys
+
+from . import __version__, analysis, cost, report, tariffs, weather
+from . import parser as csv_parser
+
+log = logging.getLogger(__name__)
+
+DEFAULT_LAT, DEFAULT_LON = 31.78, 35.21  # Jerusalem
+
+
+def build_arg_parser() -> argparse.ArgumentParser:
+    ap = argparse.ArgumentParser(
+        prog="iec-calc",
+        description="Analyze an IEC consumption export and rank Israeli electricity plans by your real usage.",
+    )
+    ap.add_argument("--version", action="version", version=f"%(prog)s {__version__}")
+    ap.add_argument("--debug", action="store_true", help="verbose diagnostic logging to stderr (off by default)")
+    ap.add_argument("--tariffs", metavar="JSON", help="override data/tariffs.json")
+    sub = ap.add_subparsers(dest="command", required=True)
+
+    def add_file_arg(p):
+        p.add_argument("csv", help="IEC consumption export (CSV)")
+
+    a = sub.add_parser("analyze", help="consumption profile: totals, base load, peaks, night/weekend split")
+    add_file_arg(a)
+    a.add_argument("--weather", action="store_true", help="correlate with temperature (Open-Meteo)")
+    a.add_argument("--lat", type=float, default=DEFAULT_LAT)
+    a.add_argument("--lon", type=float, default=DEFAULT_LON)
+
+    p = sub.add_parser("plans", help="rank all electricity plans by annual cost on your data")
+    add_file_arg(p)
+
+    r = sub.add_parser("report", help="full report: analysis + plan ranking")
+    add_file_arg(r)
+    r.add_argument("--weather", action="store_true")
+    r.add_argument("--lat", type=float, default=DEFAULT_LAT)
+    r.add_argument("--lon", type=float, default=DEFAULT_LON)
+    return ap
+
+
+def _configure_logging(debug: bool) -> None:
+    logging.basicConfig(
+        level=logging.DEBUG if debug else logging.WARNING,
+        format="%(asctime)s %(levelname)s %(name)s: %(message)s",
+        stream=sys.stderr,
+        force=True,
+    )
+    log.debug("debug logging enabled")
+
+
+def _weather_block(args, summary) -> str:
+    temps = weather.fetch_daily_temps(
+        args.lat, args.lon,
+        min(summary.daily), max(summary.daily),
+    )
+    w = weather.sensitivity(summary.daily, temps)
+    if w is None:
+        return "רגישות למזג אוויר: לא נמצאו מספיק ימים חופפים."
+    return report.format_weather(w)
+
+
+def main(argv: list[str] | None = None) -> int:
+    args = build_arg_parser().parse_args(argv)
+    _configure_logging(args.debug)
+    try:
+        intervals = csv_parser.parse(args.csv)
+    except (OSError, ValueError) as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return 2
+    summary = analysis.summarize(intervals)
+    out = []
+    if args.command in ("analyze", "report"):
+        out.append(report.format_analysis(summary))
+        if getattr(args, "weather", False):
+            out.append(_weather_block(args, summary))
+    if args.command in ("plans", "report"):
+        catalog = tariffs.load_catalog(args.tariffs)
+        costs = cost.rank_plans(intervals, catalog, summary.days)
+        out.append(report.format_ranking(costs, summary.days, catalog.flat_rate))
+    print("\n\n".join(out))
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())
