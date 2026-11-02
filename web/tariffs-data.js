@@ -406,5 +406,6 @@ export const TARIFFS = {
       "source": "https://shtipser.com/plans/",
       "verified": "2026-09-27"
     }
-  ]
+  ],
+  "vat_rate": 0.18
 };
