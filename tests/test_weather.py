@@ -58,3 +58,18 @@ def test_sensitivity_math():
     assert abs(w.weekend_extra_kwh - 3.0) < 1e-6
     assert w.r_squared > 0.99
     assert w.temp_min == 20 and w.temp_max == 24
+
+
+def test_sensitivity_singular_returns_none():
+    days = [date(2026, 10, 1) + timedelta(days=i) for i in range(10)]
+    temps = {d: 20.0 for d in days}  # constant -> singular
+    kwh = {d: 6.0 for d in days}
+    assert sensitivity(kwh, temps) is None
+
+
+def test_low_temperature_variance_returns_none():
+    # near-constant temps: any slope would be noise, report nothing (#8 follow-up)
+    days = [date(2026, 10, 1) + timedelta(days=i) for i in range(14)]
+    temps = {d: 25.3 for d in days}
+    kwh = {d: 6.0 + (i % 3) for i, d in enumerate(days)}
+    assert sensitivity(kwh, temps) is None
