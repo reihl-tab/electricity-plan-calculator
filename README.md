@@ -117,7 +117,8 @@ review, ideally by a native speaker.
 
 Normal wheel installs include the tariff catalog, efficiency benchmarks and all
 translations. Build copies them from the canonical JSON files into the package;
-no duplicate source files are maintained. CI tests the wheel outside the checkout
+no duplicate source files are maintained. Main CI covers Python 3.10 (the declared
+minimum), 3.11 and 3.12; PR CI uses one version. CI tests the wheel outside the checkout
 with `python scripts/check_wheel.py dist/iec_calc-*.whl`.
 
 
