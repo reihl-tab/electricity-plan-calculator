@@ -1,8 +1,9 @@
 """Translations loader - i18n/strings.json is the single source of truth.
 
-The CLI currently renders in the default language (Hebrew). A --lang flag
-arrives with the first additional language; the loader already accepts any
-language present in the file.
+The catalog is also the only place that names languages: each one is a block
+under "languages" (keyed by its code: own name, dir, default, machine_draft,
+optional locale). The CLI renders in the catalog's default language unless
+--lang picks another; nothing here lists language codes.
 """
 
 from __future__ import annotations

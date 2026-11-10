@@ -35,7 +35,7 @@ Try it on the synthetic sample: `iec-calc report data/sample_consumption.csv`
 
 ## Useful flags
 
-- `--lang {he,en,ar,ru,am}` - output language (default: he). The web page switches with `?lang=` instead
+- `--lang CODE` - output language, any code in the list under Translations below (default: the catalog's default language). The web page switches with `?lang=` instead
 - `--phase {single,three}` - meter phase for the fixed-fee calculation (default: single)
 - `--no-smart-meter` - exclude smart-meter plans; `--gas` / `--hot` - OPT IN to gas-customer (Amisragas) / HOT-customer plans (excluded by default)
 - `--current-plan LABEL` - mark your current plan (substring match; flat tariff and Taoz
@@ -103,17 +103,36 @@ of zero. This does not imply support for every nonstandard export.
 ## Translations (i18n)
 
 All user-visible strings live in one file: `i18n/strings.json`
-(`key -> { he, ... }`). Python and the web page read the same file (the web
+(`key -> { <code>: text }`). Python and the web page read the same file (the web
 bundle `web/i18n-data.js` is generated - run `scripts/gen_web_data.py` after
-editing). Available languages: Hebrew (default),
-English, Arabic (pending native-speaker review), Russian (pending
-native-speaker review), and Amharic (pending native-speaker review). IEC supplier plan names stay in their original Hebrew form in every
-language - they are proper nouns from the tariff catalog, not UI text. Adding a language means adding its entry under every key and in the
-`languages` map; tests enforce completeness and matching placeholders. The
-site switches language with a `?lang=` URL parameter (no cookies, no network);
-Hebrew is the default. The cautious/probabilistic phrasing of the insight
-texts must survive translation exactly - every language needs a careful
-review, ideally by a native speaker.
+editing). The same file is the only place that names the languages: each
+language is one block under `languages`, keyed by its code, with its own name
+(`name`, shown in the site's language picker), its direction (`dir`), whether
+it is the source language (`default`), whether it is still a machine draft
+(`machine_draft`) and, optionally, its `locale` (used for `og:locale`). The CLI
+`--lang` choices, the site's picker, the docs lists and the tests all read
+that map; a test fails if a language code is hardcoded anywhere else.
+
+Available languages (generated from the catalog):
+
+<!-- languages:begin (generated from i18n/strings.json by scripts/gen_language_lists.py - do not edit by hand) -->
+- `he` עברית (default)
+- `en` English
+- `ar` العربية (machine draft, pending native-speaker review)
+- `ru` Русский (machine draft, pending native-speaker review)
+- `am` አማርኛ (machine draft, pending native-speaker review)
+<!-- languages:end -->
+
+IEC supplier plan names stay in their original Hebrew form in every
+language - they are proper nouns from the tariff catalog, not UI text. Adding
+a language means adding its block under `languages` and its entry under every
+key, then running `scripts/gen_web_data.py` and `scripts/gen_language_lists.py`;
+tests enforce completeness and matching placeholders. A new language starts as
+`"machine_draft": true` until a native speaker has reviewed it. The site
+switches language with a `?lang=` URL parameter (no cookies, no network); the
+default language is used when none is given. The cautious/probabilistic
+phrasing of the insight texts must survive translation exactly - every
+language needs a careful review, ideally by a native speaker.
 
 ## Development
 

@@ -41,18 +41,23 @@ household's **actual** interval-level usage, with annual NIS cost estimates.
 ## i18n (translations)
 
 - `i18n/strings.json` is the single source of truth for every user-visible
-  string: `key -> { <lang>: text }`, plus a `languages` map with name/dir/default.
+  string: `key -> { <lang>: text }`, plus a `languages` map: one block per
+  language, keyed by its code, with its own name (`name`), `dir`, `default`
+  (the source language only), `machine_draft` and an optional `locale`. That
+  map is the only place that names languages; code, docs lists and tests
+  derive them from it (a source-scan test fails on a hardcoded code).
 - Python (`src/iec_calc/i18n.py`) and JS (`web/i18n.js`, bundled as
   `web/i18n-data.js` by `scripts/gen_web_data.py`) read the same file - no
   duplicated strings, no network.
-- Adding a language = adding an entry under every key plus the `languages`
-  map. Tests fail if any key is missing a language or placeholders differ.
+- Adding a language = adding its block to the `languages` map plus an entry
+  under every key, then regenerating the web bundle and the docs lists. Tests
+  fail if any key is missing a language or placeholders differ.
 - Web: Hebrew stays inline in the HTML (no-JS fallback); `web/i18n.js` swaps
   `[data-i18n]` text by the `?lang=` URL parameter (shareable, no cookies)
   and sets `<html lang dir>`. The selector is a native `<select>` dropdown
   inside the header, on the side opposite the title (flex `row-reverse` +
-  `space-between`, so direction picks the corner), labelled with 2-letter
-  codes (HE, EN, ...). Changing it updates the `?lang=` URL param via
+  `space-between`, so direction picks the corner), with one option per catalog
+  language labelled by its own name (endonym) and marked with its `lang`/`dir`. Changing it updates the `?lang=` URL param via
   `history.replaceState` and re-renders - no reload, no network. og/meta
   tags switch in JS only (crawlers without JS see the default tags).
 - The CLI renders in the default language unless `--lang` is given; English

@@ -1,5 +1,12 @@
 # Changelog
 
+## 2026-11-10
+
+- The strings catalog is the only language source: each language is one block
+  (own name, direction, machine-draft flag, optional locale); the site's picker
+  shows each language's own name, og:locale and the docs language lists come
+  from the catalog, and a test fails on a language code hardcoded elsewhere.
+  Adding a language is now a catalog-only change. (#44)
 ## 2026-11-03
 
 - README links to the live browser calculator using descriptive link text. (#100)

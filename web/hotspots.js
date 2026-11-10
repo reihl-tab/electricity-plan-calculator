@@ -1,9 +1,10 @@
 // Translation hotspots over the Hebrew IEC guide screenshots (#67).
 // % coordinates over the Hebrew UI elements the guide text references;
-// hover/focus/tap shows the term in the current language. Hebrew UI needs
-// no gloss - hotspots render only for other languages. Coordinates are tied
+// hover/focus/tap shows the term in the current language. The screenshots are
+// in the catalog's default language, which needs no gloss - hotspots render
+// only for the other catalog languages. Coordinates are tied
 // to the current screenshots: replacing one means re-placing its hotspots.
-import { t, currentLang } from './i18n.js';
+import { t, currentLang, defaultLang } from './i18n.js';
 
 export const HOTSPOTS = {
   step1: [{ k: 'guide.hs_quick_actions', x: 84, y: 15, w: 15, h: 75 },
@@ -39,9 +40,9 @@ export function renderHotspots(doc = document) {
   const hint = doc.getElementById('hsHint');
   if (hint) {
     hint.textContent = t('guide.hs_hint', {}, lang);
-    hint.style.display = lang === 'he' ? 'none' : '';
+    hint.style.display = lang === defaultLang() ? 'none' : '';
   }
-  if (lang === 'he') return;
+  if (lang === defaultLang()) return;
   let tipSeq = 0;
   for (const [shot, list] of Object.entries(HOTSPOTS)) {
     const wrap = doc.querySelector(`.shot[data-shot="${shot}"]`);

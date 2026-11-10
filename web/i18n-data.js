@@ -4,23 +4,30 @@ export const I18N = {
     "he": {
       "name": "עברית",
       "dir": "rtl",
-      "default": true
+      "default": true,
+      "machine_draft": false,
+      "locale": "he_IL"
     },
     "en": {
       "name": "English",
-      "dir": "ltr"
+      "dir": "ltr",
+      "machine_draft": false,
+      "locale": "en_US"
     },
     "ar": {
       "name": "العربية",
-      "dir": "rtl"
+      "dir": "rtl",
+      "machine_draft": true
     },
     "ru": {
       "name": "Русский",
-      "dir": "ltr"
+      "dir": "ltr",
+      "machine_draft": true
     },
     "am": {
       "name": "አማርኛ",
-      "dir": "ltr"
+      "dir": "ltr",
+      "machine_draft": true
     }
   },
   "strings": {

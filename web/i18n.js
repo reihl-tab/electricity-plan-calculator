@@ -2,9 +2,22 @@
 // as i18n-data.js by scripts/gen_web_data.py; local file, no network).
 import { I18N } from './i18n-data.js';
 
+// Every language is one block in the catalog (code, own name, dir,
+// machine_draft, optional locale); nothing here names a language.
 export function defaultLang() {
   for (const [code, meta] of Object.entries(I18N.languages)) if (meta.default) return code;
   return Object.keys(I18N.languages)[0];
+}
+
+// og:locale for a language: its catalog `locale`, else the bare code.
+export function ogLocale(lang) {
+  return (I18N.languages[lang] && I18N.languages[lang].locale) || lang;
+}
+
+// Amounts keep the default language's number grouping in every UI language
+// (unchanged behavior); the locale comes from the catalog, e.g. xx_YY -> xx-YY.
+export function amountLocale() {
+  return ogLocale(defaultLang()).replace('_', '-');
 }
 
 // ?lang= keeps the choice in the URL: shareable, no cookies, no storage.
@@ -42,7 +55,7 @@ export function applyI18n(doc = document) {
     if (el && I18N.strings[key]) el.setAttribute('content', t(key, {}, lang));
   }
   const locale = doc.querySelector('meta[property="og:locale"]');
-  if (locale) locale.setAttribute('content', { he: 'he_IL', en: 'en_US' }[lang] || lang);
+  if (locale) locale.setAttribute('content', ogLocale(lang));
   for (const el of doc.querySelectorAll('[data-i18n]')) {
     const key = el.getAttribute('data-i18n');
     if (el.hasAttribute('data-i18n-alt')) el.setAttribute('alt', t(key, {}, lang));
@@ -62,20 +75,24 @@ export function applyI18n(doc = document) {
     if (base !== './' && !base.endsWith('.html')) continue;
     a.setAttribute('href', `${base}?lang=${lang}${m[3] || ''}`);
   }
-  // Dropdown selector in the header: 2-letter codes, native select (keyboard
+  // Dropdown selector in the header: one option per catalog language, in
+  // catalog order, labelled with the language's own name (endonym) and marked
+  // with its lang/dir so each name renders correctly; native select (keyboard
   // + screen-reader friendly), no reload - update the URL param and re-render.
   const sel = doc.getElementById('langSwitch');
   if (sel) {
     sel.setAttribute('aria-label', t('ui.lang_switch_label', {}, lang));
     const codes = Object.keys(I18N.languages);
     const stale = !sel.options || sel.options.length !== codes.length
-      || [...sel.options].some((o, i) => o.value !== codes[i] || o.textContent !== codes[i].toUpperCase());
+      || [...sel.options].some((o, i) => o.value !== codes[i] || o.textContent !== I18N.languages[codes[i]].name);
     if (stale) {
       sel.replaceChildren();
       for (const code of codes) {
         const opt = doc.createElement('option');
         opt.value = code;
-        opt.textContent = code.toUpperCase();
+        opt.textContent = I18N.languages[code].name;
+        opt.setAttribute('lang', code);
+        opt.setAttribute('dir', I18N.languages[code].dir);
         sel.appendChild(opt);
       }
     }

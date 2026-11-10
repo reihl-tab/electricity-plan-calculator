@@ -1,5 +1,8 @@
 import logging
 
+import pytest
+
+import iec_calc.i18n as i18n
 from iec_calc.cli import main
 
 
@@ -66,49 +69,26 @@ def test_cli_gas_hot_opt_in(sample_csv, capsys):
     assert any("אמישראגז" in ln for ln in ranked_lines(out))
 
 
-def test_report_runs_arabic(sample_csv, capsys):
-    import iec_calc.i18n as i18n
-
+@pytest.mark.parametrize("code", [c for c, m in i18n.languages().items() if not m.get("default")])
+def test_report_runs_in_every_catalog_language(sample_csv, capsys, code):
     try:
-        rc = main(["--lang", "ar", "report", str(sample_csv)])
+        rc = main(["--lang", code, "report", str(sample_csv)])
     finally:
         i18n.set_active_language(None)
     out = capsys.readouterr().out
     assert rc == 0
-    assert "تحليل الاستهلاك" in out
-    assert "ترتيب المسارات" in out
+    assert i18n.t("report.analysis_title", lang=code) in out
+    assert i18n.t("report.ranking_title", lang=code) in out
+    assert i18n.t("report.analysis_title") not in out
     # supplier plan names stay Hebrew (proper nouns from the tariff catalog)
     assert "ELECTRA POWER" in out
 
 
-def test_report_runs_russian(sample_csv, capsys):
-    import iec_calc.i18n as i18n
+def test_lang_choices_are_exactly_the_catalog_languages():
+    from iec_calc.cli import build_arg_parser
 
-    try:
-        rc = main(["--lang", "ru", "report", str(sample_csv)])
-    finally:
-        i18n.set_active_language(None)
-    out = capsys.readouterr().out
-    assert rc == 0
-    assert "Анализ потребления" in out
-    assert "Рейтинг планов" in out
-    # supplier plan names stay Hebrew (proper nouns from the tariff catalog)
-    assert "ELECTRA POWER" in out
-
-
-def test_report_runs_amharic(sample_csv, capsys):
-    import iec_calc.i18n as i18n
-
-    try:
-        rc = main(["--lang", "am", "report", str(sample_csv)])
-    finally:
-        i18n.set_active_language(None)
-    out = capsys.readouterr().out
-    assert rc == 0
-    assert "የፍጆታ ትንታኔ" in out
-    assert "የዕቅዶች ደረጃ ሰሌዳ" in out
-    # supplier plan names stay Hebrew (proper nouns from the tariff catalog)
-    assert "ELECTRA POWER" in out
+    action = next(a for a in build_arg_parser()._actions if "--lang" in a.option_strings)
+    assert sorted(action.choices) == sorted(i18n.languages())
 
 
 def test_cli_phase_controls_fixed_fees(sample_csv, capsys, monkeypatch):
