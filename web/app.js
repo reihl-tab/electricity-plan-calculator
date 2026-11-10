@@ -1,11 +1,11 @@
 import { TARIFFS } from './tariffs-data.js';
 import { parseCsv, summarize, rankPlans, buildInsights } from './calc.js';
-import { t, applyI18n } from './i18n.js';
+import { t, applyI18n, amountLocale } from './i18n.js';
 
 applyI18n();
 
 const $ = id => document.getElementById(id);
-const nis = v => `${Math.round(v).toLocaleString('he-IL')} ₪`;
+const nis = v => `${Math.round(v).toLocaleString(amountLocale())} ₪`;
 
 $('csv').addEventListener('change', () => { $('go').disabled = !$('csv').files.length; });
 
@@ -79,7 +79,7 @@ function renderAnalysis(intervals) {
     sumEl.appendChild(daysB);
     sumEl.appendChild(document.createTextNode(t('app.summary_line', {
       total: sum.total.toFixed(1), avg: (sum.total / sum.days).toFixed(2),
-      annual: Math.round(sum.total / sum.days * 365).toLocaleString('he-IL') })));
+      annual: Math.round(sum.total / sum.days * 365).toLocaleString(amountLocale()) })));
     barChart($('chHourly'), [...Array(24).keys()].map(h => h % 2 ? null : `${h}:00`),
       [...sum.hourlyAvg], '#0b6bcb');
     const days = [...sum.daily.keys()].sort();
@@ -152,7 +152,7 @@ function renderAnalysis(intervals) {
       p.textContent = t('app.peak_line', {
         hours: ins.peakHours.map(([h, v]) => `${String(h).padStart(2, '0')}:00 (${v.toFixed(2)})`).join(', '),
         weekday: ins.weekdayAvg.toFixed(2), weekend: ins.weekendAvg.toFixed(2),
-        watts: Math.round(ins.nightBaseKw * 1000), nis: Math.round(baseAnnual).toLocaleString('he-IL') });
+        watts: Math.round(ins.nightBaseKw * 1000), nis: Math.round(baseAnnual).toLocaleString(amountLocale()) });
     });
     if (ins.shabbatCount) {
       addP(p => {
@@ -191,7 +191,7 @@ function renderAnalysis(intervals) {
       for (const n of ins.efficiency) {
         const li = document.createElement('li');
         li.textContent = n.text + ` (${CONF[n.confidence]})` +
-          (n.annualNis != null ? t('app.eff_annual', { nis: Math.round(n.annualNis).toLocaleString('he-IL') }) : '');
+          (n.annualNis != null ? t('app.eff_annual', { nis: Math.round(n.annualNis).toLocaleString(amountLocale()) }) : '');
         ul.appendChild(li);
       }
       appText.appendChild(ul);

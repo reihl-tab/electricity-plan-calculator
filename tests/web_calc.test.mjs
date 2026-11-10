@@ -4,9 +4,18 @@ import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
 import { intervalHours, parseCsv, summarize, rankPlans, detectAppliances, buildInsights, sunsetLocalMinutes } from '../web/calc.js';
+import { I18N } from '../web/i18n-data.js';
+import { defaultLang } from '../web/i18n.js';
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..');
 const text = readFileSync(join(root, 'data', 'sample_consumption.csv'), 'utf-8');
+
+// Languages come only from the catalog (i18n/strings.json, td423): DEF is its
+// default language, LANGS all of them in catalog order. PIN is the one second
+// language whose rendered UI text the functional tests below pin.
+const DEF = defaultLang();
+const LANGS = Object.keys(I18N.languages);
+const PIN = 'en'; // pinned English UI strings in the language-switch tests
 
 let failures = 0;
 function check(name, cond) {
@@ -180,7 +189,7 @@ function setBlock(ivs, startIdx, kws) {
   const BASE = 'https://reihlinstinct.github.io/electricity-plan-calculator/web/';
   check('meta: og:title', html.includes('property="og:title"'));
   check('meta: og:description', html.includes('property="og:description"'));
-  check('meta: og:locale he_IL', html.includes('property="og:locale" content="he_IL"'));
+  check('meta: static og:locale is the default language\'s', html.includes(`property="og:locale" content="${I18N.languages[DEF].locale}"`));
   check('meta: og:image absolute', html.includes(`property="og:image" content="${BASE}og-image.png"`));
   check('meta: twitter card', html.includes('name="twitter:card" content="summary_large_image"'));
   check('meta: twitter image absolute', html.includes(`name="twitter:image" content="${BASE}og-image.png"`));
@@ -210,7 +219,7 @@ function setBlock(ivs, startIdx, kws) {
   // CSV export guide (issue #32): web page + images + link from the upload box
   check('guide: linked near upload', html.includes('<a href="guide.html" data-i18n="ui.guide_link">'));
   const guide = readFileSync(join(root, 'web', 'guide.html'), 'utf-8');
-  check('guide: rtl hebrew page', guide.includes('dir="rtl"') && guide.includes('lang="he"'));
+  check('guide: static page in the default language', guide.includes(`lang="${DEF}"`) && guide.includes(`dir="${I18N.languages[DEF].dir}"`));
   const guideImgs = [...guide.matchAll(/<img src="([^"]+)"/g)].map(m => m[1]);
   check('guide: six step images', guideImgs.length === 6);
   check('guide: images exist and are local', guideImgs.every(p => {
@@ -237,9 +246,8 @@ function setBlock(ivs, startIdx, kws) {
 // --- i18n (issue #44): every data-i18n key exists in the bundled strings, placeholders substitute ---
 {
   const { t } = await import('../web/i18n.js');
-  check('i18n: t substitutes', t('app.days_measured', { days: 3 }, 'he') === '3 ימי מדידה');
-  check('i18n: unknown key returns key', t('no.such.key', {}, 'he') === 'no.such.key');
-  const { I18N } = await import('../web/i18n-data.js');
+  check('i18n: t substitutes', t('app.days_measured', { days: 3 }, DEF) === '3 ימי מדידה');
+  check('i18n: unknown key returns key', t('no.such.key', {}, DEF) === 'no.such.key');
   let missing = [];
   for (const page of ['index.html', 'guide.html', 'sources.html']) {
     const body = readFileSync(join(root, 'web', page), 'utf-8');
@@ -249,13 +257,15 @@ function setBlock(ivs, startIdx, kws) {
     }
   }
   check('i18n: all page keys exist in strings', missing.length === 0);
-  check('i18n: he is default rtl', I18N.languages.he && I18N.languages.he.default && I18N.languages.he.dir === 'rtl');
-  check('i18n: en present ltr, not default', I18N.languages.en && I18N.languages.en.dir === 'ltr' && !I18N.languages.en.default);
-  check('i18n: en translation renders', t('ui.title', {}, 'en') === 'Electricity plan calculator');
-  check('i18n: ar present rtl, not default', I18N.languages.ar && I18N.languages.ar.dir === 'rtl' && !I18N.languages.ar.default);
-  check('i18n: ar translation renders', t('ui.title', {}, 'ar') === 'حاسبة مسارات الكهرباء');
-  check('i18n: og keys exist in all languages', ['he', 'en', 'ar', 'ru', 'am'].every(l => I18N.strings['ui.og_title'][l] && I18N.strings['ui.og_desc'][l]));
-  check('i18n: unknown language falls back to he', t('ui.title', {}, 'fr') === t('ui.title', {}, 'he'));
+  check('i18n: exactly one default language, first in the catalog', LANGS.filter(c => I18N.languages[c].default).length === 1 && LANGS[0] === DEF);
+  check('i18n: every language block has own name, dir and machine_draft', LANGS.every(c => {
+    const m = I18N.languages[c];
+    return typeof m.name === 'string' && m.name.trim() && ['rtl', 'ltr'].includes(m.dir) && typeof m.machine_draft === 'boolean';
+  }));
+  check('i18n: every language renders its own title', LANGS.every(c => t('ui.title', {}, c) === I18N.strings['ui.title'][c]
+    && (c === DEF || t('ui.title', {}, c) !== t('ui.title', {}, DEF))));
+  check('i18n: og keys exist in all languages', LANGS.every(l => I18N.strings['ui.og_title'][l] && I18N.strings['ui.og_desc'][l]));
+  check('i18n: unknown language falls back to the default', t('ui.title', {}, 'xx') === t('ui.title', {}, DEF));
   // selector redesign (issue #54): a native select inside the header on every page,
   // flex space-between puts it opposite the title in both directions
   for (const page of ['index.html', 'guide.html', 'sources.html']) {
@@ -265,9 +275,8 @@ function setBlock(ivs, startIdx, kws) {
     check(`${page}: no old nav bar`, !body.includes('<nav id="langSwitch"'));
     check(`${page}: footer bar with both links (#62)`, body.includes('<a href="https://github.com/reihlinstinct/electricity-plan-calculator" data-i18n="ui.footer_github">GitHub</a> · <a href="sources.html" data-i18n="ui.footer_sources">Sources</a>'));
   }
-  check('i18n: footer sources label localized', I18N.strings['ui.footer_sources'].he === 'מקורות' && I18N.strings['ui.footer_sources'].en === 'Sources');
-  check('i18n: selector aria-label key in all languages', ['he', 'en', 'ar', 'ru', 'am'].every(l => I18N.strings['ui.lang_switch_label'][l]));
-  check('i18n: option labels are 2-letter codes', Object.keys(I18N.languages).every(c => c.length === 2 && c.toUpperCase().length === 2));
+  check('i18n: footer sources label localized', I18N.strings['ui.footer_sources'][DEF] === 'מקורות' && I18N.strings['ui.footer_sources'][PIN] === 'Sources');
+  check('i18n: selector aria-label key in all languages', LANGS.every(l => I18N.strings['ui.lang_switch_label'][l]));
   // issue #56: no hostname-list box on the main page; sources live only on the Sources page
   {
     const idx = readFileSync(join(root, 'web', 'index.html'), 'utf-8');
@@ -370,6 +379,7 @@ check('links: no branch refs, expected hosts only, internal links resolve (issue
   mkLink('./');
   mkLink('https://www.iec.co.il');
   mkLink('#notes');
+  const ogLocale = mkEl('meta');
   const documentStub = {
     title: '', documentElement: mkEl('html'),
     getElementById(id) {
@@ -380,6 +390,7 @@ check('links: no branch refs, expected hosts only, internal links resolve (issue
     createElement: tag => mkEl(tag),
     createTextNode: txt => ({ textContent: txt, children: [] }),
     querySelector(sel) {
+      if (sel === 'meta[property="og:locale"]') return ogLocale;
       const m = sel.match(/^\.shot\[data-shot="([^"]+)"\]$/);
       return m ? (shotEls[m[1]] ?? null) : null;
     },
@@ -408,7 +419,7 @@ check('links: no branch refs, expected hosts only, internal links resolve (issue
   };
   class CustomEventStub { constructor(type) { this.type = type; } }
   const windowStub = {
-    location: { search: '?lang=he', pathname: '/web/', hash: '' },
+    location: { search: `?lang=${DEF}`, pathname: '/web/', hash: '' },
     history: { replaceState(s, t, u) {
       const qi = u.indexOf('?'), hi = u.indexOf('#');
       windowStub.location.search = qi >= 0 ? u.slice(qi, hi >= 0 ? hi : undefined) : '';
@@ -440,38 +451,46 @@ check('links: no branch refs, expected hosts only, internal links resolve (issue
 
   await byId.go.listeners.click();
   let texts = collect().join('\n');
-  check('langswitch: he render has Hebrew plan label + column', texts.includes('חברת החשמל - תעריף אחיד מפוקח') && texts.includes('עלות שנתית'));
+  check('langswitch: default render has Hebrew plan label + column', texts.includes('חברת החשמל - תעריף אחיד מפוקח') && texts.includes('עלות שנתית'));
 
   const switchTo = code => { byId.langSwitch.value = code; byId.langSwitch.listeners.change(); };
-  switchTo('en');
+  // the picker (td423): exactly the catalog languages, in catalog order, each by its own name
+  const opts = () => byId.langSwitch.children;
+  check('picker: options are exactly the catalog languages in order', opts().map(o => o.value).join() === LANGS.join());
+  check('picker: each option shows the language\'s own name', opts().every(o => o.textContent === I18N.languages[o.value].name));
+  check('picker: each option carries its lang and dir', opts().every(o => o.attrs.lang === o.value && o.attrs.dir === I18N.languages[o.value].dir));
+  check('picker: og:locale from the catalog', ogLocale.attrs.content === I18N.languages[DEF].locale);
+  switchTo(PIN);
   texts = collect().join('\n');
-  check('langswitch: url updated', windowStub.location.search === '?lang=en');
-  check('langswitch: en render has English plan label + column', texts.includes('Israel Electric Corp - regulated flat rate') && texts.includes('Annual cost'));
+  check('langswitch: url updated', windowStub.location.search === `?lang=${PIN}`);
+  check('picker: og:locale follows the catalog block', ogLocale.attrs.content === (I18N.languages[PIN].locale || PIN));
+  check('picker: options unchanged after a switch', opts().map(o => o.value).join() === LANGS.join());
+  check('langswitch: pinned render has English plan label + column', texts.includes('Israel Electric Corp - regulated flat rate') && texts.includes('Annual cost'));
   const staleHe = ['עלות שנתית', 'חברת החשמל - תעריף אחיד מפוקח', 'ימי מדידה', 'הכי משתלם', 'תובנות מהנתונים']
     .filter(s => texts.includes(s));
 
   check('langswitch: no stale Hebrew UI strings after switch', staleHe.length === 0);
-  check('langswitch: plan select repopulated in en', byId.currentPlan.children.some(o => o.value === 'Israel Electric Corp - regulated flat rate'));
+  check('langswitch: plan select repopulated in the pinned language', byId.currentPlan.children.some(o => o.value === 'Israel Electric Corp - regulated flat rate'));
 
-  switchTo('he');
+  switchTo(DEF);
   texts = collect().join('\n');
-  check('langswitch: back to he, no stale English UI strings', !texts.includes('Annual cost') && texts.includes('עלות שנתית'));
+  check('langswitch: back to default, no stale English UI strings', !texts.includes('Annual cost') && texts.includes('עלות שנתית'));
 
   // links carry the language (#65): internal page links get ?lang=, external
   // links and pure #anchors stay untouched, rewrite is idempotent
   const hrefs = () => linkEls.map(a => a.getAttribute('href'));
-  check('links: internal links carry lang on load', hrefs()[0] === 'guide.html?lang=he' && hrefs()[1] === './?lang=he');
+  check('links: internal links carry lang on load', hrefs()[0] === `guide.html?lang=${DEF}` && hrefs()[1] === `./?lang=${DEF}`);
   check('links: external + anchor untouched', hrefs()[2] === 'https://www.iec.co.il' && hrefs()[3] === '#notes');
-  switchTo('en');
-  check('links: follow language switch', hrefs()[0] === 'guide.html?lang=en' && hrefs()[1] === './?lang=en');
-  switchTo('en');
-  check('links: idempotent rewrite', hrefs()[0] === 'guide.html?lang=en');
-  switchTo('he');
+  switchTo(PIN);
+  check('links: follow language switch', hrefs()[0] === `guide.html?lang=${PIN}` && hrefs()[1] === `./?lang=${PIN}`);
+  switchTo(PIN);
+  check('links: idempotent rewrite', hrefs()[0] === `guide.html?lang=${PIN}`);
+  switchTo(DEF);
 
   // hash preservation (#58): switching language must keep the URL fragment
   windowStub.location.hash = '#plans';
-  switchTo('en');
-  check('langswitch: url fragment preserved', windowStub.location.hash === '#plans' && windowStub.location.search === '?lang=en');
+  switchTo(PIN);
+  check('langswitch: url fragment preserved', windowStub.location.hash === '#plans' && windowStub.location.search === `?lang=${PIN}`);
 
   // error path (#58): an invalid CSV after a successful calc must show the
   // error box, hide the stale result cards, and a language switch must not
@@ -480,15 +499,15 @@ check('links: no branch refs, expected hosts only, internal links resolve (issue
   await byId.go.listeners.click();
   check('errpath: error box visible (display:block)', byId.err.style.display === 'block');
   check('errpath: stale result cards hidden', ['summaryCard', 'plansCard', 'insightsCard'].every(id => byId[id].style.display === 'none'));
-  switchTo('he');
+  switchTo(DEF);
   check('errpath: switch does not resurrect stale results', byId.plansCard.style.display === 'none' && byId.summaryCard.style.display === 'none');
   check('errpath: error box still visible after switch', byId.err.style.display === 'block');
 
   // hotspot behavior (#67/#68 review): the tap that fires mouseenter must not
   // toggle the tip straight back off; second tap hides; Escape/outside click
-  // dismiss; Hebrew UI renders none; rebuild on language change
+  // dismiss; the default (screenshot) language renders none; rebuild on language change
   {
-    windowStub.location.search = '?lang=en';
+    windowStub.location.search = `?lang=${PIN}`;
     shotEls.step1 = mkEl('div');
     const { initHotspots } = await import('../web/hotspots.js');
     initHotspots(documentStub);
@@ -498,8 +517,8 @@ check('links: no branch refs, expected hosts only, internal links resolve (issue
     const btn = () => wrap.children.find(isHs);
     const tip = () => wrap.children.find(isTip);
     const ev = { stopPropagation() {} };
-    check('hotspots fn: buttons rendered in en', !!btn());
-    check('hotspots fn: hint visible in en', byId.hsHint.style.display !== 'none' && byId.hsHint.textContent.includes('tap'));
+    check('hotspots fn: buttons rendered in the pinned language', !!btn());
+    check('hotspots fn: hint visible in the pinned language', byId.hsHint.style.display !== 'none' && byId.hsHint.textContent.includes('tap'));
     btn().listeners.mouseenter();
     check('hotspots fn: hover shows tip', !!tip());
     btn().listeners.click(ev);
@@ -524,20 +543,19 @@ check('links: no branch refs, expected hosts only, internal links resolve (issue
     const tip3 = shotEls.step3.children.find(isTip);
     check('hotspots fn: upper hotspot tip below, not overlapping (#69)', tip3.style.top === '42%' && tip3.style.bottom === undefined);
     documentStub.dispatchEvent({ type: 'keydown', key: 'Escape' });
-    windowStub.location.search = '?lang=he';
+    windowStub.location.search = `?lang=${DEF}`;
     documentStub.dispatchEvent({ type: 'iec:langchange' });
-    check('hotspots fn: no buttons in Hebrew UI', !wrap.children.some(isHs));
-    check('hotspots fn: hint hidden in he', byId.hsHint.style.display === 'none');
-    windowStub.location.search = '?lang=en';
+    check('hotspots fn: no buttons in the default-language UI', !wrap.children.some(isHs));
+    check('hotspots fn: hint hidden in the default language', byId.hsHint.style.display === 'none');
+    windowStub.location.search = `?lang=${PIN}`;
     documentStub.dispatchEvent({ type: 'iec:langchange' });
-    check('hotspots fn: rebuilt on language change back to en', !!btn());
+    check('hotspots fn: rebuilt on language change back to the pinned language', !!btn());
   }
 }
 
 // --- guide screenshot hotspots (#67): every step image wrapped, every hotspot
-// key exists in all languages, hotspots skip the Hebrew UI ---
+// key exists in all languages, hotspots skip the default (screenshot) language ---
 {
-  const { I18N } = await import('../web/i18n-data.js');
   const guide = readFileSync(join(root, 'web', 'guide.html'), 'utf-8');
   for (let n = 1; n <= 6; n++) {
     check(`hotspots: step${n} image wrapped`, guide.includes(`<div class="shot" data-shot="step${n}">`));
@@ -546,10 +564,10 @@ check('links: no branch refs, expected hosts only, internal links resolve (issue
   const keys = [...new Set([...hsjs.matchAll(/k: '(guide\.hs_\w+)'/g)].map(m => m[1]))];
   check('hotspots: keys defined', keys.length >= 8);
   for (const k of keys) {
-    check(`hotspots: ${k} in all languages`, I18N.strings[k] && ['he', 'en', 'ar', 'ru', 'am'].every(l => I18N.strings[k][l]));
+    check(`hotspots: ${k} in all languages`, I18N.strings[k] && LANGS.every(l => I18N.strings[k][l]));
   }
-  check('hotspots: hint key in all languages', I18N.strings['guide.hs_hint'] && ['he', 'en', 'ar', 'ru', 'am'].every(l => I18N.strings['guide.hs_hint'][l]));
-  check('hotspots: skipped for Hebrew UI', hsjs.includes("if (lang === 'he') return;"));
+  check('hotspots: hint key in all languages', I18N.strings['guide.hs_hint'] && LANGS.every(l => I18N.strings['guide.hs_hint'][l]));
+  check('hotspots: skipped for the default (screenshot) language', hsjs.includes('if (lang === defaultLang()) return;'));
   check('hotspots: rebuilt on language change', hsjs.includes("addEventListener('iec:langchange'"));
   check('hotspots: first-tap suppress guard (#68 review)', hsjs.includes('CLICK_SUPPRESS_MS'));
   check('hotspots: tooltip role + aria-describedby (#68 review)', hsjs.includes("'role', 'tooltip'") && hsjs.includes('aria-describedby'));
